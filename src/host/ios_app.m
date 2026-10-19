@@ -121,7 +121,10 @@ static void run_script_step(int step);
   mb_text_scale = scale;
   mb_render_set_size(s.width, s.height, scale);
   self.wantFrame = NO;
+  double t0 = frames_drawn == 0 ? mb_now_ms() : 0;
   mb_cb.frame(s.width, s.height, scale, mb_now_ms());
+  if (frames_drawn == 0)
+    say([NSString stringWithFormat:@"ios: first frame %.0fx%.0f @%.0fx in %.0f ms", s.width, s.height, scale, mb_now_ms() - t0]);
   frames_drawn++;
   if (script) run_script_step(frames_drawn);
   if (!self.wantFrame) l.paused = YES;
@@ -381,18 +384,38 @@ static MBController *the_controller;
 }
 @end
 
-@interface MBAppDelegate : UIResponder <UIApplicationDelegate>
+// The app's one window, in the scene the system connects (the UIScene life cycle, which iOS 26 asks every app for:
+// the Info.plist's UIApplicationSceneManifest names MBSceneDelegate).
+@interface MBSceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(nonatomic, strong) UIWindow *window;
 @end
 
-@implementation MBAppDelegate
-- (BOOL)application:(UIApplication *)app didFinishLaunchingWithOptions:(NSDictionary *)opts {
-  self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+@implementation MBSceneDelegate
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)opts {
+  if (![scene isKindOfClass:UIWindowScene.class]) return;
+  self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
   the_controller = [MBController new];
   self.window.rootViewController = the_controller;
   [self.window makeKeyAndVisible];
   [the_view requestFrame];
+  // (a runner waits on these lines: the app up, then its first frame drawn)
+  say(@"ios: launched");
+}
+@end
+
+@interface MBAppDelegate : UIResponder <UIApplicationDelegate>
+@end
+
+@implementation MBAppDelegate
+- (BOOL)application:(UIApplication *)app didFinishLaunchingWithOptions:(NSDictionary *)opts {
   return YES;
+}
+- (UISceneConfiguration *)application:(UIApplication *)app
+    configurationForConnectingSceneSession:(UISceneSession *)session
+                                   options:(UISceneConnectionOptions *)opts {
+  UISceneConfiguration *c = [[UISceneConfiguration alloc] initWithName:@"Default" sessionRole:session.role];
+  c.delegateClass = MBSceneDelegate.class;
+  return c;
 }
 @end
 
@@ -564,10 +587,15 @@ void mb_host_back_enabled(int32_t on) { back_on = on; }
 // a system sheet), | 2 while it is also active; told as that changes.
 static void (*state_cb)(int32_t);
 static void tell_state(void) {
-  if (!state_cb) return;
   UIApplicationState a = UIApplication.sharedApplication.applicationState;
   int shown = a != UIApplicationStateBackground;
   int front = a == UIApplicationStateActive;
+  static int told = -1;
+  if (((shown ? 1 : 0) | (front ? 2 : 0)) != told) {
+    told = (shown ? 1 : 0) | (front ? 2 : 0);
+    say([NSString stringWithFormat:@"ios: %s", front ? "active" : shown ? "inactive" : "in the background"]);
+  }
+  if (!state_cb) return;
   state_cb((shown ? 1 : 0) | (front ? 2 : 0));
   [the_view requestFrame];
 }

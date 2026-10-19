@@ -46,7 +46,7 @@ jobs:
         env:
           MBUI_KEYSTORE_B64: ${{ secrets.MBUI_BETA_KEYSTORE_B64 }}
           MBUI_KEYSTORE_PASSWORD: ${{ secrets.MBUI_BETA_KEYSTORE_PASSWORD }}
-          MBUI_KEY_ALIAS: ${{ secrets.MBUI_BETA_KEY_ALIAS }}
+          MBUI_KEY_ALIAS: mbui-beta  # (not a secret: the log would hide every "mbui-beta" in it)
           MBUI_KEY_PASSWORD: ${{ secrets.MBUI_BETA_KEY_PASSWORD }}
         run: scripts/beta.sh build
       - name: Publish

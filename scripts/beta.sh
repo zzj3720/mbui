@@ -15,7 +15,7 @@
 # hbc/, gradle/ (GRADLE_USER_HOME: this app's daemon and caches, apart from the machine's other builds).
 # The build's number and name: MBUI_VERSION_CODE (CI: the run number), MBUI_VERSION_NAME (0.1.<number>-<commit>).
 # Signing: MBUI_KEYSTORE_B64 (the keystore, base64), MBUI_KEYSTORE_PASSWORD, MBUI_KEY_ALIAS, MBUI_KEY_PASSWORD (CI:
-# the repository's secrets); without them the APK is not signed and publish refuses it.
+# the repository's secrets, but the alias); without them the APK is not signed and build refuses it.
 set -eo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 cd "$D/.."

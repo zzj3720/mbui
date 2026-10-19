@@ -309,7 +309,8 @@ pub fn[P] Ctx::nav(
     if t >= 1.0 {
       nav.settle()
     } else {
-      self.request_frame()
+      // said once it has started: frames until it ends (its stack's own id, by its bottom page's serial)
+      self.motion_until(0x6e000000 + nav.pages[0].serial, nav.t0 + nav.dur)
     }
   }
   let n = nav.pages.length()

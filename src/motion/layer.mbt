@@ -600,7 +600,8 @@ pub fn lifted(c : @ui.Ctx, list : Int, key : String) -> Double {
     Some(lm) =>
       match lm.lifted.get(motion_key(key)) {
         Some(at) if c.now() - at < 480.0 => {
-          c.request_frame()
+          // frames until it has passed (480 ms from when it went ahead)
+          c.motion_until(hash_mix(list, motion_key(key)), at + 480.0)
           c.now() - at
         }
         Some(_) => {
@@ -929,7 +930,7 @@ fn draw_ghosts(c : @ui.Ctx, li : Int) -> Unit {
       done.push(gi)
       continue
     }
-    c.request_frame()
+    // (its two Anims say their ends as they are read: frames until they are there)
     // from as it was (1) to its far end (0)
     c.draw_drawing(gh.drawing, li, gh.trans.at(1.0 - pf, 1.0 - pm))
   }

@@ -18,10 +18,23 @@ priv struct Wait {
 /// What the components keep from frame to frame outside the Ctx, made anew when a Tester starts.
 priv struct KitState {
   waits : Map[Int, Wait]
+  /// what opens by itself (a tooltip, a hover card), by its id: open last frame
+  opens : Map[Int, Bool]
+  /// a tooltip kept shut until the pointer leaves its trigger (pressed, or Escape)
+  shut : Map[Int, Bool]
+  /// when a tooltip last closed (-1 never): one opened soon after skips its delay
+  mut tip_closed : Double
+  /// toasts as drawn (toast.mbt), by their viewport's id
+  toasts : Map[Int, Kept]
 }
 
 ///|
-let kit : Ref[KitState] = Ref({ waits: {} })
+fn KitState::new() -> KitState {
+  { waits: {}, opens: {}, shut: {}, tip_closed: -1.0, toasts: {} }
+}
+
+///|
+let kit : Ref[KitState] = Ref(KitState::new())
 
 ///|
 let installed : Ref[Bool] = Ref(false)
@@ -33,7 +46,7 @@ fn install() -> Unit {
     return
   }
   installed.val = true
-  @ui.on_reset(fn() { kit.val = { waits: {} } })
+  @ui.on_reset(fn() { kit.val = KitState::new() })
 }
 
 ///|

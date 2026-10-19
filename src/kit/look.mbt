@@ -86,3 +86,21 @@ pub fn part_id(id : Int, k : Int) -> Int {
     h
   }
 }
+
+///|
+fn dmin(a : Double, b : Double) -> Double {
+  if a < b {
+    a
+  } else {
+    b
+  }
+}
+
+///|
+fn dmax(a : Double, b : Double) -> Double {
+  if a > b {
+    a
+  } else {
+    b
+  }
+}

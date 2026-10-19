@@ -85,6 +85,12 @@ The gallery's page for each is `MBUI_SCREEN=<page>`.
 | Slider | `@kit.slider(c, key, value, min?, max?, step?) -> Changed[Double]` | controls |
 | Password Toggle Field | `@kit.password_field(c, key, visible) -> Password`: the words, whether they show | controls |
 | One-Time Password Field | `Ctx::code_field` (src/ui): a code complete is handed on once | |
+| Dialog | `@kit.dialog(c, key, open, title, description?, modal?) -> Changed[Bool]`: in the window's middle; Escape, the back, a press outside, its close button close it | overlays |
+| AlertDialog | `@kit.alert_dialog(c, key, open, title, action, cancel?, danger?) -> Alert`: opens on cancel; a press outside leaves it | overlays |
+| Popover | `@kit.popover(c, key, open, anchor, side?, along?) -> Changed[Bool]`: by its trigger, the focus in it | overlays |
+| HoverCard | `@kit.hover_card(c, key, trigger, open_delay?, close_delay?) -> Bool`: a mouse resting on its trigger | overlays |
+| Tooltip | `@kit.tooltip(c, key, trigger, text, delay?, skip?) -> Bool`: the pointer resting, or the keyboard's focus at once | overlays |
+| Toast | `@kit.toaster(c, key, toasts, duration?) -> Toasts`: in the bottom right corner, paused under the pointer, swiped away (F8 waits for the hosts' function keys) | overlays |
 
 ## Radix's utilities
 

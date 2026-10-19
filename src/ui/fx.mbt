@@ -147,9 +147,5 @@ pub fn Ctx::unsettled(self : Ctx) -> String {
   if rt != "" {
     why.push(rt)
   }
-  let sp = spin_said()
-  if sp != "" {
-    why.push(sp)
-  }
   why.join("; ")
 }

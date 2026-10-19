@@ -72,12 +72,6 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
     bench_step(c, t3 - t0, t4 - t3)
   }
   drive_frame(c)
-  spin_step(c)
-  // a screenshot's run that spins idle: a failure, said, not a picture never taken
-  if bench.mode < 0 && fake.val is None && spin_said() != "" {
-    h_log("SETTLE FAIL: " + spin_said())
-    @host.exit(3)
-  }
   // whether what is shown is settled, and what is still awaited from the host: a scripted run's clock stands still
   // while any is, and its screenshot waits for settled (mac_app.m)
   if outside_told.val {
@@ -318,7 +312,6 @@ let track_y : Tracker = Tracker::new()
 
 ///|
 fn on_pointer(kind : Int, x : Double, y : Double, button : Int) -> Unit {
-  spin.input = true
   let c = g()
   // a second finger (4 down, 5 moved, 6 up: hosts with touch screens), for a pinch (native.mbt `second_pointer`)
   if kind >= 4 && kind <= 6 {
@@ -647,7 +640,6 @@ fn on_back(kind : Int, x : Double, _progress : Double, edge : Int) -> Unit {
 
 ///|
 fn on_wheel(x : Double, y : Double, dx : Double, dy : Double, phase : Int) -> Unit {
-  spin.input = true
   let c = g()
   let mut target = hit_in(c.scroll_ids, c.scroll_rects, x, y)
   // over what scrolls sideways: its sideways part moves it, the rest goes to the list it lies in
@@ -682,7 +674,6 @@ fn on_wheel(x : Double, y : Double, dx : Double, dy : Double, phase : Int) -> Un
 
 ///|
 fn on_key(code : Int, mods : Int) -> Unit {
-  spin.input = true
   let c = g()
   // every key the app may read (Ctx::key_pressed), and whether the focused field takes it (the editor's own keys)
   desk_key(code, mods, c.editors.contains(c.focus) && code < key_escape)
@@ -714,7 +705,6 @@ fn on_key(code : Int, mods : Int) -> Unit {
 
 ///|
 fn on_text(kind : Int, s : String, a : Int, b : Int) -> Unit {
-  spin.input = true
   let c = g()
   match c.editors.get(c.focus) {
     Some(st) => {

@@ -31,6 +31,7 @@ fn reset_globals() -> Unit {
   text_cache.generation = -1
   text_table.val = None
   image_cache.clear()
+  outside_tickets.clear()
   pagers.clear()
   code_fields.clear()
   code_clears.clear()
@@ -133,6 +134,7 @@ pub fn Tester::new(
     bold: 0.0,
     views: [],
     view_ids: 0,
+    views_ready: 0,
     site: [],
     cursor: 0,
     window_drags: 0,
@@ -165,12 +167,17 @@ pub fn Tester::new(
 /// Draws one frame, `ms` after the previous one.
 pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
   self.fake.time = self.fake.time + ms
-  // decodes started last frame are done
-  for _, im in self.fake.images {
+  // decodes started last frame are done, the views opened are ready: the host's events for them
+  for id, im in self.fake.images {
     if im.state == 0 {
       im.state = 1
       self.fake.wants = true
+      on_outside(1, id, 1)
     }
+  }
+  while self.fake.views_ready < self.fake.view_ids {
+    self.fake.views_ready += 1
+    on_outside(2, self.fake.views_ready, 1)
   }
   self.fake.wants = false
   // a scripted run's `resize`

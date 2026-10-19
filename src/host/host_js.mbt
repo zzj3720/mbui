@@ -80,6 +80,12 @@ extern "js" fn js_log(s : String) -> Unit =
 extern "js" fn js_bench_mode() -> Int =
   #|() => globalThis.__mbhost.benchMode()
 
+extern "js" fn js_set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Bool =
+  #|(f) => globalThis.__mbhost.setOutside ? (globalThis.__mbhost.setOutside(f), true) : false
+
+extern "js" fn js_awaiting(n : Int) -> Unit =
+  #|(n) => globalThis.__mbhost.awaiting && globalThis.__mbhost.awaiting(n)
+
 extern "js" fn js_exit(code : Int) -> Unit =
   #|(c) => globalThis.__mbhost.exit(c)
 
@@ -220,6 +226,19 @@ pub fn log(s : String) -> Unit {
 ///|
 pub fn bench_mode() -> Int {
   js_bench_mode()
+}
+
+///|
+/// Who is told as what the host does for the app is done (`f(kind, id, state)`, as host_native.mbt's). False where
+/// the host sends no such events.
+pub fn set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Bool {
+  js_set_outside(f)
+}
+
+///|
+/// How many of the app's asks the host has not answered yet, as the frame just built left it.
+pub fn awaiting(n : Int) -> Unit {
+  js_awaiting(n)
 }
 
 ///|

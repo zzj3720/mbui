@@ -169,6 +169,9 @@ pub struct Runtime {
   log : Array[String]
   /// Task resumptions so far.
   mut steps : Int
+  /// What it waits on from outside (outside.mbt): by ticket, what it is and since when.
+  priv awaited : Map[Int, (String, Int64)]
+  priv mut tickets : Int
 }
 
 ///|
@@ -199,6 +202,8 @@ fn Runtime::make(seed : Int, shuffle : Bool, start : Int64, clock : (() -> Int64
     defects,
     log: [],
     steps: 0,
+    awaited: Map::new(),
+    tickets: 0,
   }
 }
 

@@ -188,6 +188,8 @@ id mb_views_root(CGRect frame) {
 @property(nonatomic) BOOL loaded;
 @property(nonatomic) int htmlLen;
 @property(nonatomic, strong) PImage *snap;
+@property(nonatomic) BOOL snapping;  // a picture of it being taken (refreshSnap)
+@property(nonatomic) BOOL told;      // its readiness told to the app (mb_host_outside)
 // a site's
 @property(nonatomic, strong) MBSiteHandler *handler;
 @property(nonatomic, strong) NSMutableArray<NSString *> *said;
@@ -423,6 +425,7 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   if (total == -2) {
     vlog(@"view %d: read at %lld failed", self.vid, r.off);
     self.failed = YES;
+    [self tell:-1];
     for (MBLoad *x in [self.loads copy]) [self end:x error:YES];
     [self.pending removeAllObjects];
     return;
@@ -494,6 +497,9 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   dispatch_async(dispatch_get_main_queue(), ^{
     if (self.closed) return;
     [self logState];
+    // a video is ready for the app once its first frame can be shown (or it failed)
+    if (self.playerLayer.readyForDisplay) [self tell:1];
+    else if (self.failed) [self tell:-1];
     mb_host_request_frame();
   });
 }
@@ -595,9 +601,17 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   mb_host_request_frame();
 }
 
+// Its readiness told to the app, once (apple.h's mb_host_outside: kind 2).
+- (void)tell:(int)state {
+  if (self.told) return;
+  self.told = YES;
+  mb_host_outside(2, self.vid, state);
+}
+
 - (void)pageFailed:(NSError *)e {
   if (self.loaded || self.closed) return;
   self.failed = YES;
+  [self tell:-1];
   vlog(@"view %d: page failed: %@", self.vid, e.localizedDescription);
   mb_host_request_frame();
 }
@@ -612,9 +626,14 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
 - (void)refreshSnap {
   if (!self.loaded || self.w <= 0 || self.h <= 0) return;
   __weak MBNative *me = self;
+  self.snapping = YES;
   [self.web takeSnapshotWithConfiguration:nil
                         completionHandler:^(PImage *img, NSError *e) {
                           if (img) me.snap = img;
+                          me.snapping = NO;
+                          // a page is ready for the app once loaded and its first picture taken
+                          if (me) [me tell:1];
+                          mb_host_request_frame();
                         }];
 }
 
@@ -1115,6 +1134,13 @@ int mb_views_pass_through(double x, double y) {
 }
 
 int mb_views_count(void) { return (int)views.count; }
+
+// Whether a page's picture for snapshots is being taken (apple.h).
+int mb_views_snapping(void) {
+  for (MBNative *v in views.allValues)
+    if (v.snapping && !v.closed) return 1;
+  return 0;
+}
 
 void mb_views_draw_under(CGContextRef ctx, double scale) {
   size_t H = CGBitmapContextGetHeight(ctx);

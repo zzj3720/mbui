@@ -110,3 +110,11 @@ pub fn Ctx::effect(self : Ctx, key : String, f : async (@effect.Scope) -> Unit) 
     ignore(s.fork(() => f(s), name=key))
   }
 }
+
+///|
+/// What is shown is settled: the frame just built asks for no other, no fiber waits for one or for the host (an image
+/// decoding, a view loading: hostcall.mbt's tickets) and no timer is due within `within` ms. What a scripted step or a
+/// screenshot waits for.
+pub fn Ctx::settled(self : Ctx, within? : Int = 1000) -> Bool {
+  !self.wants_frame && fx.val.settled(within~)
+}

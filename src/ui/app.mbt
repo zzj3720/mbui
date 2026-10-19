@@ -47,6 +47,7 @@ pub fn run(title : String, view : (Ctx) -> Unit) -> Unit {
   drive_init()
   @host.set_back(fn(k, x, p, e) { on_back(k, x, p, e) })
   @host.set_app_state(fn(s) { on_app_state(s) })
+  outside_told.val = @host.set_outside(fn(k, id, st) { on_outside(k, id, st) })
   @host.run(
     title,
     fn(w, h, s, t) { on_frame(w, h, s, t) },
@@ -71,6 +72,10 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
     bench_step(c, t3 - t0, t4 - t3)
   }
   drive_frame(c)
+  // what is still awaited from the host: a scripted run's clock stands still while any is (mac_app.m)
+  if outside_told.val {
+    @host.awaiting(runtime().awaiting())
+  }
   if c.wants_frame || bench.mode > 0 {
     h_request_frame()
   } else if c.wake_at > 0.0 {

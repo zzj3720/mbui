@@ -620,6 +620,13 @@ int32_t mb_host_reduce_motion(void) {
   return on ? 0 : 1;
 }
 
+// What the host does for the app, told as it is done (host_native.mbt's set_outside, awaiting): not sent here yet.
+int32_t mb_host_set_outside(void *f) {
+  (void)f;
+  return 0;
+}
+void mb_host_awaiting(int32_t n) { (void)n; }
+
 int32_t mb_host_bench_mode(void) {
   const char *b = getenv("MBUI_BENCH");
   return b ? atoi(b) : 0;

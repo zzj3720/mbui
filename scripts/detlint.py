@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """detlint: what a run's determinism must not rest on: a guessed time, a wait for the app to "settle", a frame the app
-asks for itself, the machine's own clock. mbui's (scripts/detlint.py) and still.fail's apps/mbui (a copy of it,
-apps/mbui/scripts/detlint.py, kept the same) run it on themselves with their own detlint.json.
+asks for itself, the machine's own clock. mbui runs it on itself; still.fail's apps/mbui runs the one of the mbui it
+pins ($MBUI_DIR/scripts/detlint.py apps/mbui) with its own apps/mbui/detlint.json.
 
     python3 scripts/detlint.py [ROOT]            check ROOT (default: this script's module) against ROOT/detlint.json
     python3 scripts/detlint.py ROOT --update     write the counts found as the new bar (never above the old one;
                                                  --update=raise to raise it, said why in the commit)
     python3 scripts/detlint.py ROOT --list RULE  every finding of RULE, file:line
 
-The bar (a ratchet): detlint.json keeps each rule's count of findings, file by file. A rule found more often than its
-bar fails the check (and says which files grew); found less often, it fails too until the bar is lowered with --update
-(that is the migration's own commit: what was moved off stays off). A rule whose bar is 0 is simply forbidden.
+The bar (a ratchet): detlint.json keeps each rule's count of findings, file by file, and each file is held to its own:
+one more in any file fails (a finding moved to another file too), naming it and its lines; fewer fails too, until
+--update lowers the bar (the migration's own commit: what was moved off stays off). A rule whose bar is 0 is simply
+forbidden.
 
 The rules (see RULES below for each one's words):
 
@@ -21,8 +22,9 @@ The rules (see RULES below for each one's words):
     settle         anything waits for, or asks whether, the app is "settled" (Tester::settle / settled, Ctx::settled /
                    stable): stability is an assertion at the end (assert_idle), never a condition
     flow-wait      an end-to-end flow (*.drive) waits a fixed time (wait N, linger N)
-    script-wait    a test or screenshot script waits a fixed time or a fixed frame count (sleep N, MBUI_SHOT_AT=N,
-                   setTimeout(…, N), waitForTimeout(N), time.sleep(N))
+    script-wait    a test or screenshot script waits a fixed time, a fixed frame count, or for the page to settle
+                   (sleep N, MBUI_SHOT_AT=N, setTimeout(…, N), waitForTimeout(N), time.sleep(N),
+                   __mbhost.settled())
     frame-count    a test runs a fixed number of frames (for _ in 0..<N { t.frame() })
     literal-time   a time given as a bare number (run_for(347), wake_in(500.0), advance(16.0), frame(ms=33.0),
                    wake_at(c.now() + 500.0)): a time names what it is (an animation's, a timer's declared length)
@@ -42,8 +44,9 @@ An exception is written on the line itself or on the line above it, with its rea
     c.request_frame() // det-ok(frame-request): the bench mode draws every frame on purpose
     # det-ok(script-wait): the emulator's boot has no event to wait for
 
-They are printed with their reasons, and have a bar of their own (detlint.json's `excused`, by rule and file), which
-only goes down as the findings' does: an exception more fails as a finding more would.
+They are printed with their reasons, and counted (detlint.json's `excused`, by rule and file): in a file, an
+exception may only take the place of a finding there was (found and excused together never above their bar), so
+exceptions cannot grow on their own.
 
 What it reads: MoonBit through a lexer of its own (comments, strings with their interpolations, #| lines, chars,
 numbers), a call being NAME ( … ) with what is before it (a receiver `.`, a package `@pkg.`, a type `T::`) and its
@@ -519,6 +522,8 @@ RULES = {
     "literal-time": "a time given as a bare number: name what it is (an animation's or a timer's declared length)",
     "stable-mode": "the app draws otherwise when it is screenshotted (Ctx::stable): the picture is taken at a time "
                    "its animations declare, of the app as it runs",
+    "retired-api": "an interface given up (an animation is data, declared once with its start and end): "
+                   "frames_until, animating, animating_until, run_animations",
     "app-clock": "the app reads the clock to work out an animation or a time passed: motion / wake_at do it from what "
                  "they declared",
     "wall-clock": "the machine's own clock or randomness, outside the host that provides them",
@@ -528,6 +533,7 @@ RULES = {
 }
 
 FRAME_ASK = {"request_frame", "wake_in", "wake_after", "wake_at", "wake_at_time", "frames_until"}
+RETIRED = {"frames_until", "animating", "animating_until", "run_animations"}
 SETTLE = {"settle", "settled"}
 SETTLE_TYPES = {"Tester", "Ctx", "Runtime"}
 SETTLE_DEFS = {"settle", "settled", "unsettled", "stable", "assert_idle"}
@@ -584,6 +590,9 @@ def lint_mbt(f, cfg, out, returns, readers):
         out.append(Finding(rule, f.rel, toks[k].line, what))
 
     for c in f.calls:
+        # the interfaces given up: neither defined nor called, anywhere
+        if c.name in RETIRED and (c.is_def or c.kind in ("method", "pkg", "bare", "type")):
+            add("retired-api", c.at, f.lines[toks[c.at].line - 1].strip())
         if c.is_def:
             continue
         test = f.in_test(c.at)
@@ -837,6 +846,7 @@ SCRIPT_WAITS = [
     re.compile(r"\bsetTimeout\(.*[^\w.][0-9]"),
     re.compile(r"\bwaitForTimeout\("),
     re.compile(r"\btime\.sleep\("),
+    re.compile(r"\b__mb\w*\.(?:settled|unsettled)\b"),  # a web page waited on until the app is settled
 ]
 
 
@@ -929,8 +939,26 @@ def total(per_file):
     return sum(per_file.values())
 
 
-# the two bars: findings, and exceptions (det-ok), each by rule and file; neither may grow
-LEDGERS = (("counts", False, "found"), ("excused", True, "det-ok"))
+def over(cur, bar):
+    """The files (of one rule) above their bar: (file, found, its bar, found and excused, their bar)."""
+    out = []
+    for p in sorted(set(cur["found"]) | set(cur["excused"])):
+        f, e = cur["found"].get(p, 0), cur["excused"].get(p, 0)
+        bf, be = bar["found"].get(p, 0), bar["excused"].get(p, 0)
+        if f > bf or f + e > bf + be:
+            out.append((p, f, bf, f + e, bf + be))
+    return out
+
+
+def under_bar(cur, bar):
+    """The files (of one rule) below their bar: found fewer, or found and excused fewer."""
+    out = []
+    for p in sorted(set(bar["found"]) | set(bar["excused"])):
+        f, e = cur["found"].get(p, 0), cur["excused"].get(p, 0)
+        bf, be = bar["found"].get(p, 0), bar["excused"].get(p, 0)
+        if f < bf or f + e < bf + be:
+            out.append(p)
+    return out
 
 
 def main(argv):
@@ -951,57 +979,65 @@ def main(argv):
                 ex = f"   [det-ok: {fd.excused}]" if fd.excused else ""
                 print(f"{fd.rule}\t{fd.file}:{fd.line}\t{fd.what}{ex}")
         return 0
-    have = {key: tally(findings, exc) for key, exc, _ in LEDGERS}
+    found, excused = tally(findings, False), tally(findings, True)
+    have = {r: {"found": found[r], "excused": excused[r]} for r in RULES}
+    bars = {r: {"found": conf.get("counts", {}).get(r), "excused": conf.get("excused", {}).get(r)} for r in RULES}
     update = next((a for a in flags if a.startswith("--update")), None)
     if update:
-        said = []
-        for key, _, word in LEDGERS:
-            old, new = conf.get(key, {}), {}
-            for r in RULES:
-                if r in old and total(have[key][r]) > total(old[r]) and update != "--update=raise":
-                    print(f"detlint: {r} ({word}) is above its bar ({total(have[key][r])} > {total(old[r])}): not "
-                          f"raised (--update=raise to raise it, and say why)", file=sys.stderr)
-                    new[r] = old[r]
-                else:
-                    new[r] = dict(sorted(have[key][r].items()))
-            conf[key] = new
-            said.append(f"{word}: " + ", ".join(f"{r} {total(new[r])}" for r in RULES))
+        counts, exc = {}, {}
+        for r in RULES:
+            cur, bar = have[r], bars[r]
+            nf, ne = dict(cur["found"]), dict(cur["excused"])
+            if bar["found"] is not None and update != "--update=raise":
+                bar = {"found": bar["found"], "excused": bar["excused"] or {}}
+                for p, f, bf, fe, bfe in over(cur, bar):
+                    print(f"detlint: {r} in {p} is above its bar ({f} found, {fe} with det-ok; the bar {bf}, {bfe}): "
+                          f"kept (--update=raise to raise it, and say why)", file=sys.stderr)
+                    nf[p], ne[p] = bar["found"].get(p, 0), bar["excused"].get(p, 0)
+            counts[r] = {p: n for p, n in sorted(nf.items()) if n}
+            exc[r] = {p: n for p, n in sorted(ne.items()) if n}
+        conf["counts"], conf["excused"] = counts, exc
         with open(conf_path, "w", encoding="utf-8") as fh:
             json.dump(conf, fh, ensure_ascii=False, indent=2)
             fh.write("\n")
-        print("detlint: bars written. " + "; ".join(said))
+        print("detlint: bars written: " + ", ".join(
+            f"{r} {total(counts[r])}" + (f" (+{total(exc[r])} det-ok)" if exc[r] else "") for r in RULES))
         return 0
     bad = False
-    print(f"detlint ({os.path.relpath(root, os.path.dirname(os.path.dirname(root)))}): rule, found / bar, "
-          f"det-ok / bar")
+    print(f"detlint ({os.path.basename(root)}): rule, found / bar, "
+          f"det-ok / bar (each file against its own)")
     for r in RULES:
-        line = f"  {r:14}"
+        cur, bar = have[r], bars[r]
         notes = []
-        for key, exc, word in LEDGERS:
-            cur, bar = have[key][r], conf.get(key, {}).get(r)
-            n, nb = total(cur), (total(bar) if bar is not None else None)
-            line += f" {n:5} / {'-' if nb is None else nb:<5}"
-            if nb is None:
+        line = f"  {r:14} {total(cur['found']):5} / "
+        if bar["found"] is None:
+            bad = True
+            line += "-"
+            notes.append(f"    {r}: no bar in detlint.json (scripts/detlint.py --update)")
+        else:
+            bar = {"found": bar["found"], "excused": bar["excused"] or {}}
+            line += f"{total(bar['found']):<5} {total(cur['excused']):4} / {total(bar['excused']):<4}"
+            if total(bar["found"]) == 0 and total(bar["excused"]) == 0:
+                line += "  forbidden"
+            for p, f, bf, fe, bfe in over(cur, bar):
                 bad = True
-                notes.append(f"    {r} ({word}): no bar in detlint.json (scripts/detlint.py --update)")
-            elif n > nb:
+                if f > bf:
+                    notes.append(f"    {r}: {p}: {f} > {bf}: {RULES[r]}")
+                else:
+                    notes.append(f"    {r}: {p}: {fe - f} det-ok, the bar {bfe - bf}: an exception may only take "
+                                 f"the place of a finding there was")
+                for fd in findings:
+                    if fd.rule == r and fd.file == p:
+                        notes.append(f"        {p}:{fd.line}  {fd.what}" + (
+                            f"   [det-ok: {fd.excused}]" if fd.excused is not None else ""))
+                if f > bf:
+                    notes.append(f"      an exception says why on its line (`det-ok({r}): <why>`), in place of a "
+                                 f"finding there was")
+            lower = under_bar(cur, bar)
+            if lower:
                 bad = True
-                notes.append(f"    {r} ({word}): {n} > {nb}: " + (
-                    RULES[r] if not exc else "an exception more: each one counts, and only goes down"))
-                for p in sorted(cur):
-                    if cur[p] > bar.get(p, 0):
-                        notes.append(f"      {p}: {cur[p]} (was {bar.get(p, 0)})")
-                        for fd in findings:
-                            if fd.rule == r and fd.file == p and (fd.excused is not None) == exc:
-                                notes.append(f"        {p}:{fd.line}  {fd.what}")
-                if not exc:
-                    notes.append(f"      an exception says why on its line, `det-ok({r}): <why>`, and counts too")
-            elif n < nb:
-                bad = True
-                notes.append(f"    {r} ({word}): {n} < {nb}: lower the bar to what is now (scripts/detlint.py "
-                             f"--update), so it stays there")
-        if total(have["counts"][r]) == 0 and total(have["excused"][r]) == 0:
-            line += "  forbidden"
+                notes.append(f"    {r}: fewer than the bar in {', '.join(lower)}: lower it to what is now "
+                             f"(scripts/detlint.py --update), so it stays there")
         print(line)
         for fd in findings:
             if fd.rule == r and fd.excused is not None:

@@ -10,16 +10,18 @@ one assertion, at a test's end (no input, no animation: no frame).
     python3 scripts/detlint.py . --update      the counts found become the bar (never raised: --update=raise)
     python3 scripts/detlint_test.py            each rule's failing and passing example
 
-It runs first in `scripts/check.sh` and in CI's test job. still.fail's `apps/mbui` runs the same file
-(`apps/mbui/scripts/detlint.py`, a copy kept the same) with its own `apps/mbui/detlint.json`, from still.fail's
-`scripts/check.sh`.
+It runs first in `scripts/check.sh` and in CI's test job. still.fail's `apps/mbui` runs this file, of the mbui its
+`mbui.rev` pins (`python3 "$MBUI_DIR/scripts/detlint.py" apps/mbui`), with its own `apps/mbui/detlint.json`, from
+`apps/mbui/scripts/check.sh` and still.fail's `scripts/check.sh`: a change to the rules reaches it with a bump.
 
 ## The bar
 
-`detlint.json` keeps each rule's findings, counted by file (`counts`), and its exceptions the same way (`excused`).
-More than either bar fails, naming the files that grew and their lines. Fewer fails too, until `--update` lowers it
-in the same commit: what a migration moved off cannot come back, nor come back as an exception. A rule at 0 on both
-is forbidden outright; once a migration reaches 0 nothing else is needed.
+`detlint.json` keeps each rule's findings by file (`counts`), and its exceptions the same way (`excused`). Each file
+is held to its own bar, not the rule's total: one more finding in any file fails, a finding moved into another file
+too (that file is above its bar), naming the file and its lines; the totals are printed. Fewer fails too, until
+`--update` lowers the bar in the same commit: what a migration moved off cannot come back. `--update` never raises
+a file's bar (a file renamed or split: `--update=raise`, and the commit says why). A rule at 0 is forbidden outright;
+once a migration reaches 0 nothing else is needed.
 
 ## Exceptions
 
@@ -29,7 +31,9 @@ On the line, or the line over it, with the reason:
     # det-ok(script-wait): the emulator's boot has nothing to wait for but its property
 
 Several rules: `det-ok(poll, frame-request): …`. One without a reason is not taken. The report prints every
-exception with its reason; they have a bar of their own (above), so an exception more fails as a finding more does.
+exception with its reason. They are counted too: in a file, an exception may only take the place of a finding there
+was (its findings and exceptions together never above their bar there), so marking a finding lowers the findings'
+bar with `--update` and nothing needs raising, while an exception for something new fails as the finding would.
 
 ## The rules
 
@@ -38,11 +42,12 @@ exception with its reason; they have a bar of their own (above), so an exception
 | `frame-request` | anything but the scheduler itself calls `Ctx::request_frame`, `@host.request_frame`, `@ui.request_frame`, `h_request_frame`: the app, and the framework's components, lists, scrolling, pages, overlays, nav, fx and motion too. The scheduler (`mbt.frame_core`): in mbui `src/ui/app.mbt` (the frame loop, the dispatch of inputs and events), `src/ui/ctx.mbt` (`request_frame`, `wake_*` themselves), `src/ui/hostcall.mbt`, `src/ui/hostread.mbt` (the host's bridge), `src/host`; in still.fail `src/host` | nothing: the framework frames inputs and events; an animation is data, declared once with its start and end |
 | `settle` | `Tester::settle` / `settled`, `Ctx::settled`, `Runtime::settle` / `settled`, anywhere (tests, the Tester's own `tap`…, the driver), but in their own definitions | `run_for(<a declared time>)`, `finish(<that ticket>)`; `assert_idle()` at the end |
 | `flow-wait` | `wait N`, `linger N` in an end-to-end flow | `until`, and the named events (`answered`, `ready`, `decoded`) |
-| `script-wait` | `sleep N`, `MBUI_SHOT_AT=N`, `setTimeout(…, N)`, `waitForTimeout(…)`, `time.sleep(…)` in test and screenshot scripts | wait for the file, the log line, the event; a picture at a time its animations declare |
+| `script-wait` | `sleep N`, `MBUI_SHOT_AT=N`, `setTimeout(…, N)`, `waitForTimeout(…)`, `time.sleep(…)`, a page waited on until it settles (`__mbhost.settled()`, `unsettled()`) in test and screenshot scripts | wait for the file, the log line, the event; a picture at a time its animations declare |
 | `frame-count` | a test's `for _ in 0..<N { … t.frame() … }` | the inputs, then `run_for` a declared time |
 | `literal-time` | a bare number as a time: `run_for`, `wake_in`, `wake_after`, `wake_at`, `advance`, `frames_until`, `frame(ms=)` (`c.now() + 500.0` too; `0` is no time and passes) | a named length: `run_for(toast_life)`, `wake_at(at + hold_ms)` |
 | `stable-mode` | the app reads `Ctx::stable()` (drawn otherwise when screenshotted) | the picture taken at a declared time, of the app as it runs |
-| `app-clock` | the app reads the clock: `.now()`, `@ui.now()`, `@host.now()` (`(c.now() - at) / 180.0`, `at = c.now()`) | motion, `wake_at` from a declared length |
+| `retired-api` | `frames_until`, `animating`, `animating_until`, `run_animations`, defined or called, anywhere: given up (an animation is data, declared once with its start and end). Forbidden from the start | motion's declared animations |
+| `app-clock` | the app reads the clock: `.now()`, `@ui.now()`, `@host.now()` (`(c.now() - at) / 180.0`, `at = c.now()`) | motion, `wake_at` from a declared length. Showing a time is right (`3 分钟前`: under a Tester the clock is the test's; its next change a `wake_at`): such a read is marked `det-ok(app-clock): shown as …`, in place of its finding |
 | `wall-clock` | `Date.now`, `performance.now`, `Math.random`, `crypto.getRandomValues`… (also inside externs' JS), an unseeded `@random`, `wall_ms()` outside the host / core that provides them | the host's clock through `@ui`, a seed |
 | `poll` | a frame or a wake asked for under a condition (if, while, match, an arm's guard, an else's if) that reads the host (`@host.*`), the layout or a host handle (`list_row_height`, `list_place`, `rect_of`, `made`, `grabbed`, `photos`, `pressed`…), or calls a function of the package that does | the host's answer, the layout's, as an event; a deadline while a finger is down is a deadline and passes |
 | `host-read` | the app calls `@host.now / wake_after / platform / system_dark / window_inset / env` (still.fail #738) | `@ui`'s, which a Tester answers |
@@ -66,8 +71,9 @@ What it does not see:
   where `update_busy` reads a field another function filled from `@host.update_state()` is not a poll to it, nor a
   time polled every frame (`if waited(c, k) < later_ms { c.request_frame() }`). In the app both are still
   `frame-request`. Of the 17 polls the frame audit (2026-10-20) lists in still.fail's app, it finds 11.
-- `app-clock` counts reads of the clock, not what is done with them: a timestamp kept to show "3 min ago" counts as
-  an animation's start does (an exception says which it is).
+- `app-clock` counts reads of the clock, not what is done with them: `(now - sent) / 60000.0` for "3 分钟前" and
+  `(now - at) / 180.0` for an animation are the same expression. Decided: it counts them all, and a read that shows a
+  time is marked, once, as the migration reaches it (an exception in place of a finding, so the bar only goes down).
 - `Ctx::still()` (stable or reduced motion) is not `stable-mode`: reduced motion is the person's.
 - Hosts (Objective-C, C, Java, JS outside MoonBit externs) are not read.
 - `script-wait` reads lines: a `sleep` in a heredoc counts, one in a comment line does not.

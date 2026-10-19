@@ -137,9 +137,10 @@ class Rules(unittest.TestCase):
         bad = {
             "scripts/shots.sh": "MBUI_SCRIPT=shot MBUI_SHOT_AT=60 ./app\nsleep 3\n",
             "scripts/web.mjs": "await page.waitForTimeout(Number(process.env.WAIT || 800));\n"
-                               "await new Promise((r) => setTimeout(r, 500));\n",
+                               "await new Promise((r) => setTimeout(r, 500));\n"
+                               "await page.waitForFunction(() => __mbhost.settled(), null, { timeout: 30000 });\n",
         }
-        found(self, bad, "script-wait", 4)
+        found(self, bad, "script-wait", 5)
         good = {
             "scripts/shots.sh": "# sleep 3 was here\nMBUI_SCRIPT=shot ./app\nwait $pid\n",
             "scripts/web.mjs": "await page.waitForFunction(() => window.__mb !== undefined);\n",
@@ -323,7 +324,22 @@ class Exceptions(unittest.TestCase):
                 fh.write("fn w(c : @ui.Ctx) -> Unit {\n  c.request_frame() // det-ok(frame-request): b\n}\n")
             code, out = Bar.run_main(None, t)
             self.assertEqual(code, 1, out)
-            self.assertIn("an exception more", out)
+            self.assertIn("an exception may only take the place of a finding", out)
+        finally:
+            t.close()
+
+    def test_an_exception_in_place_of_a_finding_is_taken_and_lowers_the_bar(self):
+        t = Tree({"src/app/view.mbt": "fn v(c : @ui.Ctx) -> Unit {\n  let ago = c.now() - sent\n}\n"})
+        try:
+            Bar.run_main(None, t, "--update")
+            with open(os.path.join(t.root, "src/app/view.mbt"), "w", encoding="utf-8") as fh:
+                fh.write("fn v(c : @ui.Ctx) -> Unit {\n  let ago = c.now() - sent // det-ok(app-clock): shown as ago\n}\n")
+            code, out = Bar.run_main(None, t)
+            self.assertEqual(code, 1, out)
+            self.assertIn("lower it", out)
+            self.assertEqual(Bar.run_main(None, t, "--update")[0], 0)
+            code, out = Bar.run_main(None, t)
+            self.assertEqual(code, 0, out)
         finally:
             t.close()
 
@@ -333,6 +349,17 @@ class Exceptions(unittest.TestCase):
             self.assertEqual(len(t.findings("frame-request")), 1)
         finally:
             t.close()
+
+
+class Retired(unittest.TestCase):
+    def test_given_up_interfaces_are_forbidden(self):
+        bad = {"src/ui/anim.mbt": "pub fn Ctx::frames_until(self : Ctx, t : Double) -> Unit {\n  ()\n}\n",
+               "src/app/view.mbt": "fn v(c : @ui.Ctx) -> Unit {\n  c.animating_until(at + d)\n"
+                                   "  if c.animating() { () }\n  @ui.run_animations(c)\n}\n"}
+        found(self, bad, "retired-api", 4)
+        good = {"src/app/view.mbt": "fn v(c : @ui.Ctx) -> Unit {\n  let animating = true\n"
+                                    "  c.text(\"frames_until\")\n}\n"}
+        found(self, good, "retired-api", 0)
 
 
 class Bar(unittest.TestCase):
@@ -346,6 +373,21 @@ class Bar(unittest.TestCase):
             code = detlint.main([t.root, *flags])
         return code, out.getvalue()
 
+    def test_moved_to_another_file_fails(self):
+        t = Tree(self.FILES)
+        try:
+            self.run_main(t, "--update")
+            # the same two, one of them moved into another file: the total is the same, that file is over its bar
+            with open(os.path.join(t.root, "src/app/view.mbt"), "w", encoding="utf-8") as fh:
+                fh.write("fn v(c : @ui.Ctx) -> Unit {\n  c.request_frame()\n}\n")
+            with open(os.path.join(t.root, "src/app/other.mbt"), "w", encoding="utf-8") as fh:
+                fh.write("fn w(c : @ui.Ctx) -> Unit {\n  c.request_frame()\n}\n")
+            code, out = self.run_main(t)
+            self.assertEqual(code, 1, out)
+            self.assertIn("src/app/other.mbt: 1 > 0", out)
+        finally:
+            t.close()
+
     def test_update_then_pass_then_more_fails_less_fails(self):
         t = Tree(self.FILES)
         try:
@@ -358,7 +400,7 @@ class Bar(unittest.TestCase):
                 fh.write("fn w(c : @ui.Ctx) -> Unit {\n  c.request_frame()\n}\n")
             code, out = self.run_main(t)
             self.assertEqual(code, 1)
-            self.assertIn("src/app/view.mbt: 3 (was 2)", out)
+            self.assertIn("src/app/view.mbt: 3 > 2", out)
             # --update does not raise it
             self.run_main(t, "--update")
             self.assertEqual(self.run_main(t)[0], 1)
@@ -367,7 +409,7 @@ class Bar(unittest.TestCase):
                 fh.write("fn v(c : @ui.Ctx) -> Unit {\n  c.text(\"x\")\n}\n")
             code, out = self.run_main(t)
             self.assertEqual(code, 1)
-            self.assertIn("lower the bar", out)
+            self.assertIn("lower it", out)
             self.run_main(t, "--update")
             code, out = self.run_main(t)
             self.assertEqual(code, 0, out)

@@ -112,7 +112,9 @@
     "script-wait": {
       "scripts/android.sh": 6,
       "scripts/shots.sh": 2,
-      "scripts/textdiff.sh": 1
+      "scripts/textdiff.sh": 1,
+      "scripts/web-shot.mjs": 3,
+      "scripts/web-test.mjs": 2
     },
     "frame-count": {
       "src/effecttest/frame_test.mbt": 1,
@@ -149,6 +151,7 @@
     "stable-mode": {
       "src/demo/main.mbt": 1
     },
+    "retired-api": {},
     "app-clock": {
       "src/effectdemo/demo.mbt": 1,
       "src/kit/menu.mbt": 2,
@@ -192,6 +195,7 @@
     "frame-count": {},
     "literal-time": {},
     "stable-mode": {},
+    "retired-api": {},
     "app-clock": {},
     "wall-clock": {},
     "poll": {},

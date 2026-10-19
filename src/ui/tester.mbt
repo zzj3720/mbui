@@ -74,6 +74,15 @@ fn reset_globals() -> Unit {
   picture_at.clear()
   wheels.clear()
   captures.clear()
+  // selection's, a link's hold, what scrolls inside a list (words.mbt, rich.mbt, sideways.mbt)
+  c.press_at = -1.0
+  c.held_told = -1.0
+  c.taken_at = -1.0
+  c.tapped = None
+  words_marks.clear()
+  words_kept.clear()
+  words_sel.clear()
+  sideways.clear()
   second_ptr[2] = 0.0
   bench.mode = 0
   reset_drawing()

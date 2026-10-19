@@ -1,18 +1,31 @@
 // Motion as data, not commands (docs/determinism.md): a motion is said once, as it starts (or anew when its target
 // changes): where it goes, by what curve, from when, and so until when. Its value at a frame is a function of that
-// frame's time. The framework draws frames while a motion said has not reached its end, and after it none; nothing
-// asks for frames one by one. What never ends while shown (a spinner) is a cycle: its phase is a function of the
-// frames' clock, and it is drawn while something shown reads it.
+// frame's time. What moves says so itself, once, as it sets out (Ctx::moving: a spring's way as it is sent somewhere,
+// an Anim as it is told to go); the framework asks it at each frame's end when it is at rest, draws frames until then
+// and after it none. Nothing asks for frames one by one, and a view building says nothing of motion. What never ends
+// while shown (a spinner) is a cycle: its phase is a function of the frames' clock, and it is drawn while something
+// shown reads it.
 
 ///|
-/// The end of motion `id` (the frames' clock, ms): frames until then. Said once as it starts, or anew (a new end
-/// replaces the old). An end already past says nothing.
-pub fn Ctx::motion_until(self : Ctx, id : Int, end : Double) -> Unit {
-  if end > self.now {
-    self.motion_ends[id] = end
-  } else {
-    self.motion_ends.remove(id)
-  }
+/// What moves by itself (a spring's way, an Anim): when it is at rest, on the frames' clock, asked at the end of each
+/// frame (`now` its time, `frame` its number) while it is said to move. +inf: it does not know yet (it starts at a
+/// frame to come), a frame is owed to it; at or before `now`: at rest, forgotten.
+pub(open) trait Moving {
+  rest_at(Self, now : Double, frame : Int) -> Double
+}
+
+///|
+/// `m` (by `id`, unique among what moves) sets out: frames until it is at rest. Said once, by what moves, as it sets
+/// out; said again (a new way) it replaces what was said.
+pub fn Ctx::moving(self : Ctx, id : Int, m : &Moving) -> Unit {
+  self.movers[id] = m
+}
+
+///|
+/// An id for what moves, of its own (Ctx::moving).
+pub fn Ctx::mover_id(self : Ctx) -> Int {
+  self.mover_ids = self.mover_ids + 1
+  self.mover_ids
 }
 
 ///|
@@ -29,22 +42,28 @@ pub fn Ctx::cycle(self : Ctx, period : Double) -> Double {
 }
 
 ///|
-/// Whether a motion said has not reached its end (the next frame is owed to it); those that have are forgotten.
+/// Whether something said to move is not at rest at this frame's end (the next frame is owed to it); what is, is
+/// forgotten.
 fn Ctx::motion_owed(self : Ctx) -> Bool {
   let done = []
   let mut owed = false
-  self.motion_ends.each(fn(id, end) { if end > self.now { owed = true } else { done.push(id) } })
+  self.movers.each(fn(id, m) { if m.rest_at(self.now, self.frame_no) > self.now { owed = true } else { done.push(id) } })
   for id in done {
-    self.motion_ends.remove(id)
+    self.movers.remove(id)
   }
   owed
 }
 
 ///|
-/// The latest end of the motions said (-1: none).
+/// When the last of what is said to move is at rest (-1: none moves).
 pub fn Ctx::motion_end(self : Ctx) -> Double {
   let mut e = -1.0
-  self.motion_ends.each(fn(_, end) { if end > e { e = end } })
+  self.movers.each(fn(_, m) {
+    let r = m.rest_at(self.now, self.frame_no)
+    if r > e {
+      e = r
+    }
+  })
   e
 }
 
@@ -54,7 +73,7 @@ pub fn Ctx::motion_end(self : Ctx) -> Double {
 /// A spring's way as data: from `x0` (moving at `v0` a second) at `t0` (ms, the frames' clock) towards `to`, by
 /// stiffness `k` and damping `c`, at rest (`to`, within `rest`) from `end` on. Where it is at a time is solved, not
 /// stepped, so it is the same at any frame rate; the way is said anew only when it is sent somewhere else (go) or put
-/// somewhere (put). Who keeps one says its end with Ctx::motion_until.
+/// somewhere (put). Sent somewhere, it says so (Ctx::moving): frames until it is at rest.
 pub struct SpringPath {
   priv mut x0 : Double
   priv mut v0 : Double
@@ -64,12 +83,13 @@ pub struct SpringPath {
   priv k : Double
   priv c : Double
   priv rest : Double
+  priv id : Int
 }
 
 ///|
 /// A spring at rest at `x`.
 pub fn SpringPath::new(x : Double, k~ : Double, c~ : Double, rest? : Double = 0.001) -> SpringPath {
-  { x0: x, v0: 0.0, to: x, t0: 0.0, end: -1.0, k, c, rest }
+  { x0: x, v0: 0.0, to: x, t0: 0.0, end: -1.0, k, c, rest, id: g().mover_id() }
 }
 
 ///|
@@ -109,6 +129,14 @@ pub fn SpringPath::go(self : SpringPath, now : Double, to : Double, v? : Double)
   self.to = to
   self.t0 = now
   self.end = now + 1000.0 * spring_end(x - to, self.v0, self.k, self.c, self.rest)
+  g().moving(self.id, self as &Moving)
+}
+
+///|
+pub impl Moving for SpringPath with rest_at(self, now, frame) {
+  ignore(now)
+  ignore(frame)
+  self.end
 }
 
 ///|

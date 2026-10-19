@@ -80,7 +80,6 @@ pub fn Ctx::cover(
   if self.still() {
     s.path.put(1.0)
   }
-  self.motion_until(id, s.path.end())
   self.cover_asks.push({ holder, items, from: s.from, to: s.to, p: s.path.value(self.now), look })
 }
 

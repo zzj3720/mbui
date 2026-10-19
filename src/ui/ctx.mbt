@@ -159,8 +159,9 @@ pub struct Ctx {
   lists : Map[Int, ListState]
   editors : Map[Int, EditorState]
   springs : Map[Int, SpringPath]
-  /// the motions said and their ends (motion_data.mbt), and whether a cycle was read this frame
-  motion_ends : Map[Int, Double]
+  /// what is said to move (motion_data.mbt), the last id given to one, and whether a cycle was read this frame
+  movers : Map[Int, &Moving]
+  mut mover_ids : Int
   mut cycling : Bool
   /// covers by their ids, and those asked for this frame (cover.mbt)
   covers : Map[Int, CoverState]
@@ -274,7 +275,8 @@ fn Ctx::new() -> Ctx {
     lists: Map::new(),
     editors: Map::new(),
     springs: Map::new(),
-    motion_ends: Map([]),
+    movers: Map([]),
+    mover_ids: 0,
     cycling: false,
     covers: Map::new(),
     cover_asks: [],
@@ -703,7 +705,6 @@ pub fn Ctx::spring(
   // it) sets it out again from here, as fast as it goes
   if target != s.target() {
     s.go(self.now, target)
-    self.motion_until(id, s.end())
   }
   s.value(self.now)
 }

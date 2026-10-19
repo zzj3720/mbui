@@ -44,6 +44,16 @@ let sheet_k : Double = {
 }
 
 ///|
+/// How long a sheet's scrim takes to fade in or out (ms).
+pub let sheet_scrim_ms : Double = 300.0
+
+///|
+/// The scrim's fade: sheet_scrim_ms on CSS's ease (Sheet.kt's scrim tween).
+fn scrim_fade() -> @motion.Spec {
+  @motion.tween(sheet_scrim_ms, ease=Css)
+}
+
+///|
 /// A sheet's spring at rest at `x` (at rest within half a point).
 fn sheet_spring(x : Double) -> @ui.SpringPath {
   @ui.SpringPath::new(x, k=sheet_k, c=2.0 * sheet_k.sqrt(), rest=0.5)
@@ -56,9 +66,8 @@ priv struct SheetKept {
   below : @ui.SpringPath
   /// where a finger has its height while dragging (-1 none)
   mut held : Double
-  mut scrim : Double
-  mut scrim_from : Double
-  mut scrim_at : Double
+  /// how much of its scrim shows (0 … 1), fading in and out over sheet_scrim_ms
+  fade : @motion.Anim
   /// open last frame; drawn (until it has sunk away); the height it was asked for last
   mut was_open : Bool
   mut shown : Bool
@@ -95,9 +104,7 @@ pub fn sheet(
         h: sheet_spring(0.0),
         below: sheet_spring(0.0),
         held: -1.0,
-        scrim: 0.0,
-        scrim_from: 0.0,
-        scrim_at: -1.0,
+        fade: @motion.Anim::new(0.0),
         was_open: false,
         shown: false,
         asked: -1.0,
@@ -119,8 +126,7 @@ pub fn sheet(
       s.h.go(t, target)
     }
     s.below.go(t, 0.0)
-    s.scrim_from = s.scrim
-    s.scrim_at = t
+    s.fade.animate(1.0, scrim_fade())
     s.shown = true
     s.asked = target
   } else if open && target != s.asked {
@@ -179,36 +185,28 @@ pub fn sheet(
   if !now && s.was_open {
     s.held = -1.0
     s.below.go(t, s.h.value(t))
-    s.scrim_from = s.scrim
-    s.scrim_at = t
+    s.fade.animate(0.0, scrim_fade())
   }
-  // the scrim, and the springs
-  let want = if now { 1.0 } else { 0.0 }
-  if s.scrim_at < 0.0 {
-    s.scrim_at = t
-  }
-  let p = if c.still() { 1.0 } else { dmin((t - s.scrim_at) / 300.0, 1.0) }
-  s.scrim = s.scrim_from + (want - s.scrim_from) * @ui.bezier(0.25, 0.1, 0.25, 1.0, p)
+  // (the springs and the fade say themselves that they move, as they set out: Ctx::moving)
   if c.still() {
     s.h.put(s.h.target())
     s.below.put(s.below.target())
   }
-  // the springs' and the scrim's ends: frames until then
-  c.motion_until(c.id(key + "/h"), s.h.end())
-  c.motion_until(c.id(key + "/below"), s.below.end())
-  c.motion_until(c.id(key + "/scrim"), if c.still() { -1.0 } else { s.scrim_at + 300.0 })
   let hx = s.h.value(t)
   let bx = s.below.value(t)
-  if !now && bx >= hx - 0.5 && p >= 1.0 {
+  let scrim_t = s.fade.get()
+  // (logic on a motion's end, to be told at once instead: shown is false only once it has sunk away and its scrim
+  // faded, the sheet drawn until then from what it is)
+  if !now && bx >= hx - 0.5 && !s.fade.moving() {
     // sunk away
     s.shown = false
-    s.scrim = 0.0
+    s.fade.snap(0.0)
     s.was_open = false
     return { open: false, shown: false, dragged }
   }
-  let o = c.overlay(key, modal=true, scrim=@ui.alpha(scrim.unwrap_or(th.scrim), s.scrim), inert=!now, fn() {
+  let o = c.overlay(key, modal=true, scrim=@ui.alpha(scrim.unwrap_or(th.scrim), scrim_t), inert=!now, fn() {
     let i = c.box(w=Fill(1.0), h=Px(hx), ty=total - hx + bx, fn() {
-      look(c, { t: s.scrim, h: hx, below: bx }, fn() {
+      look(c, { t: scrim_t, h: hx, below: bx }, fn() {
         // behind what it shows (its buttons take their taps), over the sheet (it takes the drags)
         c.layer(fn() { c.drag_area(top_id, axis=Vertical, w=Fill(1.0), h=Px(drag_h), fn() {  }) |> ignore }) |> ignore
         body()
@@ -220,10 +218,7 @@ pub fn sheet(
     now = false
     s.held = -1.0
     s.below.go(t, hx)
-    s.scrim_from = s.scrim
-    s.scrim_at = t
-    c.motion_until(c.id(key + "/below"), s.below.end())
-    c.motion_until(c.id(key + "/scrim"), t + 300.0)
+    s.fade.animate(0.0, scrim_fade())
   }
   s.was_open = now
   ignore(told(c, now != open))

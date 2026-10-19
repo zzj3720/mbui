@@ -232,7 +232,6 @@ fn reset() -> Unit {
   mo.lists.clear()
   mo.ghosts.clear()
   anims.clear()
-  anim_ids.val = anim_ids_from
   reset_fx()
 }
 

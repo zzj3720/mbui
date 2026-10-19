@@ -378,7 +378,6 @@ fn Ctx::forget(self : Ctx, serial : Int) -> Unit {
         self.lists.remove(id)
         self.editors.remove(id)
         self.springs.remove(id)
-        self.motion_ends.remove(id)
         pagers.remove(id)
         drags.remove(id)
         code_fields.remove(id)

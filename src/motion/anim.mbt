@@ -26,17 +26,9 @@ pub struct Anim {
   /// the frame it was last stepped in, and last used in
   mut stepped : Int
   mut used : Int
-  /// what it says its end by (Ctx::motion_until)
+  /// what it is said to move by (Ctx::moving)
   id : Int
 }
-
-///|
-/// Where the ids Anims say their ends by start (apart from the views' own: a range of their own).
-let anim_ids_from : Int = 0x6d000000
-
-///|
-/// The last id an Anim was given.
-let anim_ids : Ref[Int] = Ref::new(anim_ids_from)
 
 ///|
 /// A number at `v`, still.
@@ -56,10 +48,7 @@ pub fn Anim::new(v : Double) -> Anim {
     running: false,
     stepped: -1,
     used: -1,
-    id: {
-      anim_ids.val = anim_ids.val + 1
-      anim_ids.val
-    },
+    id: @ui.current().mover_id(),
   }
 }
 
@@ -81,12 +70,9 @@ fn Anim::step(self : Anim, c : @ui.Ctx) -> Unit {
   if self.start < 0.0 {
     if frame <= self.asked {
       // it starts at the next frame
-      c.motion_until(self.id, c.now() + 1.0)
       return
     }
     self.start = c.now()
-    // said once it has started: frames until it ends (whole ms, as its time goes)
-    c.motion_until(self.id, self.start + self.dur.ceil())
   }
   let ms = c.now() - self.start
   match (self.gen, self.spec) {
@@ -101,7 +87,6 @@ fn Anim::step(self : Anim, c : @ui.Ctx) -> Unit {
       self.velocity = g.velocity(t, initial=self.v0)
       if st.done || ms.floor() >= self.dur {
         self.finish()
-        c.motion_until(self.id, -1.0)
       }
       return
     }
@@ -112,7 +97,6 @@ fn Anim::step(self : Anim, c : @ui.Ctx) -> Unit {
   self.velocity = v
   if ms.floor() >= self.dur {
     self.finish()
-    c.motion_until(self.id, -1.0)
   }
 }
 
@@ -121,6 +105,22 @@ fn Anim::finish(self : Anim) -> Unit {
   self.value = self.end
   self.velocity = 0.0
   self.running = false
+}
+
+///|
+/// When it is there (whole ms, as its time goes): asked at each frame's end while it moves. Told to go and not yet
+/// started (it starts at the first frame after it was told), that frame is this one if this is past it.
+pub impl @ui.Moving for Anim with rest_at(self, now, frame) {
+  if !self.running {
+    return -1.0
+  }
+  if self.start < 0.0 {
+    if frame <= self.asked {
+      return @double.infinity
+    }
+    self.start = now
+  }
+  self.start + self.dur.ceil()
 }
 
 ///|
@@ -177,8 +177,8 @@ pub fn Anim::animate(self : Anim, target : Double, spec : Spec, velocity? : Doub
     self.finish()
   } else {
     self.running = true
-    // it starts at the next frame
-    c.motion_until(self.id, c.now() + 1.0)
+    // said once, as it is told to go: frames until it is there (it starts at the next frame)
+    c.moving(self.id, self as &@ui.Moving)
   }
 }
 
@@ -202,9 +202,7 @@ pub fn Anim::snap(self : Anim, v : Double) -> Unit {
   self.gen = None
   self.velocity = 0.0
   self.running = false
-  let c = @ui.current()
-  self.stepped = c.frame_number()
-  c.motion_until(self.id, -1.0)
+  self.stepped = @ui.current().frame_number()
 }
 
 ///|

@@ -473,8 +473,6 @@ pub fn Ctx::pager(
       on_middle()
     }
   }
-  // let go or turned: frames until it is at rest
-  self.motion_until(id, st.slide.end())
   st.told = st.index
   st.index
 }

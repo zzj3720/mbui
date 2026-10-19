@@ -29,6 +29,7 @@ fn reset_globals() -> Unit {
   text_cache.metrics.clear()
   text_cache.glyphs.clear()
   text_cache.generation = -1
+  text_table.val = None
   image_cache.clear()
   pagers.clear()
   code_fields.clear()

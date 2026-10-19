@@ -13,15 +13,42 @@ fn hash_mix(h : Int64, v : Int64) -> Int64 {
 /// 1/64 px and 1/255 steps) and the laid-out tree with its words and carets (`dump`). The same steps give the same
 /// number on every run and every machine.
 pub fn Tester::frame_hash(self : Tester) -> Int64 {
+  ignore(self)
+  drawn_hash()
+}
+
+///|
+fn drawn_hash() -> Int64 {
   let c = g()
   let mut h = -3750763034362895579L
   for k in 0..<(c.ninst * inst_size) {
     h = hash_mix(h, (c.inst[k] * 64.0).round().to_int64())
   }
-  for ch in self.dump() {
+  let sb = StringBuilder()
+  dump_node(sb, 0, 0)
+  for ch in sb.to_string() {
     h = hash_mix(h, ch.to_int().to_int64())
   }
   h
+}
+
+///|
+/// MBUI_DRAW_LOG=1 on a real host: each frame's `frame_hash` on the log (DRAWHASH frame hash), for a Tester over the
+/// host's kept text (textrec.mbt) to be checked against: -1 not asked yet, 0 no, 1 yes.
+let draw_log : Ref[Int] = Ref::new(-1)
+
+///|
+let draw_frames : Ref[Int] = Ref::new(0)
+
+///|
+fn log_drawn() -> Unit {
+  if draw_log.val < 0 {
+    draw_log.val = if @host.env("MBUI_DRAW_LOG") == "1" { 1 } else { 0 }
+  }
+  if draw_log.val == 1 {
+    draw_frames.val += 1
+    @host.log("DRAWHASH \{draw_frames.val} \{drawn_hash()}")
+  }
 }
 
 ///|

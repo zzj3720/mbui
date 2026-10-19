@@ -1,0 +1,30 @@
+# A throwaway check (branch ch-ci-sf only, never main): still.fail's apps/mbui on its branch mbui-chat-complete against
+# this checkout of mbui, while the shared Mac is too loaded to run it.
+name: ch-sf
+on:
+  push:
+    branches: [ch-ci-sf]
+env:
+  MOON_HOME: ${{ github.workspace }}/../.moon
+jobs:
+  sf:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: mbui }
+      - uses: actions/checkout@v4
+        with:
+          repository: AFK-surf/still.fail
+          ref: mbui-chat-complete
+          path: sf
+          sparse-checkout: apps/mbui
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | MOON_HOME=$MOON_HOME bash
+          echo "$MOON_HOME/bin" >> $GITHUB_PATH
+      - name: mbui's tests
+        run: cd mbui && moon check --target js --output-json 2>&1 | python3 scripts/errs.py && moon test --target js -p mbui/ui -p mbui/motion -p mbui/md 2>&1 | grep -v "^Warning" | tail -40
+      - name: still.fail mbui's check
+        run: cd sf/apps/mbui && MBUI=$GITHUB_WORKSPACE/mbui bash scripts/check.sh 2>&1 | grep -v "^Finished" | tail -40
+      - name: still.fail mbui's tests
+        run: cp mbui/ch-extra/*.mbt sf/apps/mbui/src/sfapp/ 2>/dev/null || true; cd sf/apps/mbui && MBUI=$GITHUB_WORKSPACE/mbui LINES_OUT=2000 bash scripts/test.sh 2>&1 | tail -3000

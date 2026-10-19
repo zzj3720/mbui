@@ -295,14 +295,20 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
 /// `max`, the test fails, saying why and who asked (Ctx::unsettled);
 /// `unsettled_ok`: it goes on instead (a test of what runs on; the inputs' own, Tester::tap and the like: whether what
 /// is shown settles is the test's settle to say).
-pub fn Tester::settle(self : Tester, max? : Int = 600, unsettled_ok? : Bool = false) -> Int {
+#callsite(autofill(loc))
+pub fn Tester::settle(
+  self : Tester,
+  max? : Int = 600,
+  unsettled_ok? : Bool = false,
+  loc~ : SourceLoc,
+) -> Int {
   let mut n = 0
   while n < max && (g().wants_frame || self.fake.wants) {
     self.frame()
     n = n + 1
   }
   if !unsettled_ok && n >= max && (g().wants_frame || self.fake.wants) {
-    let why = "Tester::settle: not settled after \{max} frames: " + g().unsettled()
+    let why = "Tester::settle (\{loc}): not settled after \{max} frames: " + g().unsettled()
     println(why)
     abort(why)
   }

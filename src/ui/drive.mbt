@@ -80,6 +80,8 @@ priv struct Driver {
   mut shot_at : Double
   // frames in a row the app was settled at; whether this step's waiting for it was told (on the log, after a second)
   mut calm : Int
+  /// whether steps first wait for the app to be settled (a host's run: MBUI_DRIVE_SETTLED=1; under the Tester, yes)
+  settles : Bool
   mut told : Bool
   dir : String
 }
@@ -92,12 +94,14 @@ let driver : Ref[Driver?] = { val: None }
 fn drive_init() -> Unit {
   let script = @host.env_text("MBUI_DRIVE")
   if script != "" {
-    drive_start(script, @host.env("MBUI_SHOT_DIR"))
+    // (on a host only when asked for, for now: an app with what moves for ever where a flow looks, a placeholder's
+    // breath, never settles there; the frames' reasons the framework is to know first)
+    drive_start(script, @host.env("MBUI_SHOT_DIR"), settles=@host.env("MBUI_DRIVE_SETTLED") == "1")
   }
 }
 
 ///|
-fn drive_start(script : String, dir : String) -> Unit {
+fn drive_start(script : String, dir : String, settles? : Bool = true) -> Unit {
   let steps = script.split("\n").map(fn(l) { l.trim(chars=" \t\r").to_string() }).to_array()
   driver.val = Some({
     steps,
@@ -117,6 +121,7 @@ fn drive_start(script : String, dir : String) -> Unit {
     gms: 0.0,
     shot_at: -1.0,
     calm: 0,
+    settles,
     told: false,
     dir,
   })
@@ -378,7 +383,7 @@ fn drive_frame(c : Ctx) -> Unit {
   // two frames running: the one that took the last step's input, then one built after it
   let settled_now = c.settled()
   d.calm = if settled_now { d.calm + 1 } else { 0 }
-  let calm = d.calm >= 2
+  let calm = !d.settles || d.calm >= 2
   // why not, as the app left it (before the run's own ask for a frame)
   let why_not = if settled_now { "" } else { c.unsettled() }
   c.request_frame()

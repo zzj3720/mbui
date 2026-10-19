@@ -63,3 +63,25 @@ pub async fn[X] outside(what : String, start : ((X) -> Unit) -> Unit) -> X {
   })
   d.wait()
 }
+
+///|
+/// Why it is not settled, said ("" when it is): fibers ready, waiting for a frame, what is awaited from outside, the
+/// timers what is shown waits for (when, and the fiber that set it if named).
+pub fn Runtime::unsettled(self : Runtime) -> String {
+  let why : Array[String] = []
+  if !self.ready.is_empty() {
+    why.push("\{self.ready.length()} fibers ready")
+  }
+  if !self.frame_waiters.is_empty() {
+    why.push("\{self.frame_waiters.tasks.length()} fibers waiting for a frame")
+  }
+  for a in self.awaited() {
+    why.push("awaiting \{a.0} since \{a.1} ms")
+  }
+  for t in self.timers.items {
+    if t.live && !t.later {
+      why.push("a timer at \{t.at} ms" + (if t.who == "" { "" } else { " (\{t.who})" }))
+    }
+  }
+  why.join("; ")
+}

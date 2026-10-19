@@ -466,9 +466,15 @@ static int shift_down(void) {
 
 static void shot(const char *name) {
   if (!shot_path) return;
-  // a page's picture being taken (after a resize): the snapshot has it once it is in
-  for (int i = 0; i < 2000 && mb_views_snapping(); i++)
+  // the pages' pictures taken as they are now: the snapshot has them once they are in (ten seconds, else said)
+  mb_views_snap_all();
+  int i = 0;
+  for (; i < 2000 && mb_views_snapping(); i++)
     [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.005]];
+  if (mb_views_snapping()) {
+    fprintf(stderr, "SETTLE FAIL: a page's picture not taken in 10 s\n");
+    exit(3);
+  }
   char p[1024];
   snprintf(p, sizeof p, "%s/%s.png", shot_path, name);
   int ok = mb_render_snapshot(p);
@@ -652,8 +658,7 @@ static void run_script_step(int step) {
       // ten seconds of the app's own time and still not settled (an animation that never ends, a timer set again and
       // again that is not `later`): a failure, said, not a picture
       if (step >= at + 600) {
-        fprintf(stderr, "SETTLE FAIL: not settled after %d frames (awaiting %d%s%s)\n", step, awaiting,
-                awaiting ? ": " : "", awaited_what);
+        fprintf(stderr, "SETTLE FAIL: not settled after %d frames: %s\n", step, awaited_what);
         exit(3);
       }
     } else {
@@ -816,7 +821,7 @@ int32_t mb_host_set_outside(mb_outside_fn f) {
 void mb_host_frame_settled(int32_t settled_now, int32_t n, moonbit_string_t what) {
   app_settled = settled_now != 0;
   awaiting = n;
-  snprintf(awaited_what, sizeof awaited_what, "%s", n > 0 ? mb_ns_from_string(what).UTF8String : "");
+  snprintf(awaited_what, sizeof awaited_what, "%s", mb_ns_from_string(what).UTF8String ?: "");
 }
 
 void mb_host_outside(int32_t kind, int32_t id, int32_t state) {

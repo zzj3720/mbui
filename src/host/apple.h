@@ -54,6 +54,8 @@ double mb_now_ms(void);
 void mb_host_outside(int32_t kind, int32_t id, int32_t state);
 // whether a native view's picture for snapshots is being taken (apple_views.m): a snapshot waits for it
 int mb_views_snapping(void);
+// every loaded page's picture taken anew, before a snapshot (apple_views.m)
+void mb_views_snap_all(void);
 
 // native views (apple_views.m), kept under the canvas's view and seen through
 // its holes (kind 9 instances)

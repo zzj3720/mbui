@@ -65,6 +65,8 @@ priv struct Timer {
   /// set for a change some time later (a refresh, a caret's blink, words that go back after a while): what is
   /// shown is not waiting for it to be settled (outside.mbt's `settled`)
   later : Bool
+  /// who set it (the sleeping fiber's name; "" not said), for `unsettled`
+  who : String
 }
 
 ///|
@@ -424,9 +426,15 @@ pub async fn pause() -> Unit noraise {
 }
 
 ///|
-fn Runtime::add_timer(self : Runtime, at : Int64, fire : () -> Unit, later? : Bool = false) -> Timer {
+fn Runtime::add_timer(
+  self : Runtime,
+  at : Int64,
+  fire : () -> Unit,
+  later? : Bool = false,
+  who? : String = "",
+) -> Timer {
   self.seq += 1
-  let t = { at, seq: self.seq, fire, live: true, later }
+  let t = { at, seq: self.seq, fire, live: true, later, who }
   self.timers.push(t)
   t
 }
@@ -446,7 +454,7 @@ pub async fn sleep(ms : Int, later? : Bool = false) -> Unit noraise {
   let t = current_task()
   let rt = t.rt
   let at = rt.now() + ms.to_int64()
-  let timer = rt.add_timer(at, () => t.wake(), later~)
+  let timer = rt.add_timer(at, () => t.wake(), later~, who=t.name)
   defer {
     if timer.live {
       timer.live = false

@@ -120,3 +120,20 @@ pub fn Ctx::effect(self : Ctx, key : String, f : async (@effect.Scope) -> Unit) 
 pub fn Ctx::settled(self : Ctx) -> Bool {
   !self.wants_frame && self.wake_waited < 0.0 && fx.val.settled()
 }
+
+///|
+/// Why what is shown is not settled (Ctx::settled), said: "" when it is.
+pub fn Ctx::unsettled(self : Ctx) -> String {
+  let why : Array[String] = []
+  if self.wants_frame {
+    why.push("a frame asked for")
+  }
+  if self.wake_waited >= 0.0 {
+    why.push("a wake at \{self.wake_waited.to_int()} ms it waits for")
+  }
+  let rt = fx.val.unsettled()
+  if rt != "" {
+    why.push(rt)
+  }
+  why.join("; ")
+}

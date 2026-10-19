@@ -77,12 +77,10 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
   if outside_told.val {
     let rt = runtime()
     let n = rt.awaiting()
-    let what = if n == 0 {
-      ""
-    } else {
-      rt.awaited().map(a => "\{a.0} (since \{a.1} ms)").join(", ")
-    }
-    @host.frame_settled(c.settled(), n, what)
+    let settled = c.settled()
+    // what it awaits, or (settled or not) why it is not: what a run that never settles says
+    let what = if settled { "" } else { c.unsettled() }
+    @host.frame_settled(settled, n, what)
   }
   if c.wants_frame || bench.mode > 0 {
     h_request_frame()

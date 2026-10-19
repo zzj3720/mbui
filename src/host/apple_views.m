@@ -599,9 +599,12 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
     mb_host_request_frame();
     if (!self.loaded) vlog(@"view %d: site page loaded (%@)", self.vid, wv.URL.path);
   }
+  if (self.kind == 3) [self tell:1];
   if (self.closed || self.loaded) return;
   self.loaded = YES;
   vlog(@"view %d: page loaded", self.vid);
+  // ready for the app (its picture for snapshots is the host's own business: mb_views_snap_all, at a snapshot)
+  [self tell:1];
   [self refreshSnap];
   mb_host_request_frame();
 }
@@ -637,8 +640,6 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
                         completionHandler:^(PImage *img, NSError *e) {
                           if (img) me.snap = img;
                           me.snapping = NO;
-                          // a page is ready for the app once loaded and its first picture taken
-                          if (me) [me tell:1];
                           mb_host_request_frame();
                         }];
 }
@@ -1148,6 +1149,12 @@ int mb_views_snapping(void) {
   for (MBNative *v in views.allValues)
     if (v.snapping && !v.closed) return 1;
   return 0;
+}
+
+// A snapshot is about to be taken: every page loaded and placed has its picture taken anew (apple.h).
+void mb_views_snap_all(void) {
+  for (MBNative *v in views.allValues)
+    if (v.kind >= 2 && !v.closed && v.loaded) [v refreshSnap];
 }
 
 void mb_views_draw_under(CGContextRef ctx, double scale) {

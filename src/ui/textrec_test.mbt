@@ -2,14 +2,14 @@
 
 ///|
 test "kept text lays words out as the host shaped them; what it lacks is said" {
-  let t = @ui.Tester::new(fn(c) { c.box(dir=Row, fn() { c.text("ab", size=10.0) |> ignore }) |> ignore }, w=200.0, h=100.0)
+  let view = fn(c : @ui.Ctx) { c.box(dir=Row, fn() { c.text("ab", size=10.0) |> ignore }) |> ignore }
   // the fake host: half an em a letter
-  let (_, _, w0, _) = t.rect_of("ab").unwrap()
+  let (_, _, w0, _) = @ui.Tester::new(view, w=200.0, h=100.0).rect_of("ab").unwrap()
   assert_eq(w0, 10.0)
-  t.use_text((
+  let kept =
     #|TEXTREC {"m":[10,400,0],"r":[9,3,13]}
     #|TEXTREC {"s":[10,400,0,"ab"],"r":[0,1,7.5,97,1,1,4.25,98]}
-  ))
+  let t = @ui.Tester::new(view, w=200.0, h=100.0, text=kept)
   let (_, _, w1, h1) = t.rect_of("ab").unwrap()
   assert_eq(w1, 11.75)
   assert_eq(h1, 13.0)

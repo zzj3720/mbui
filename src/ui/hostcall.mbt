@@ -5,6 +5,8 @@
 ///|
 struct FakeHost {
   mut time : Double
+  /// device pixels a point, as a host's window has them (2: a Retina screen; a recording host's, Tester::new(scale=))
+  mut scale : Double
   mut wants : Bool
   mut wake : Double
   mut instances : Int

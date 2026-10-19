@@ -18,6 +18,29 @@ pub fn Tester::frame_hash(self : Tester) -> Int64 {
 }
 
 ///|
+/// What the last frame drew as text: the laid-out tree (`dump`), then each instance drawn, one a line (its 24
+/// numbers, positions and sizes in 1/64 px, colours in 1/255): what two frames' hashes part on, line by line.
+pub fn Tester::drawn_text(self : Tester) -> String {
+  ignore(self)
+  drawn_text()
+}
+
+///|
+fn drawn_text() -> String {
+  let c = g()
+  let sb = StringBuilder()
+  dump_node(sb, 0, 0)
+  for k in 0..<c.ninst {
+    sb.write_string("inst")
+    for j in 0..<inst_size {
+      sb.write_string(" \{(c.inst[k * inst_size + j] * 64.0).round().to_int64()}")
+    }
+    sb.write_char('\n')
+  }
+  sb.to_string()
+}
+
+///|
 fn drawn_hash() -> Int64 {
   let c = g()
   let mut h = -3750763034362895579L
@@ -33,21 +56,30 @@ fn drawn_hash() -> Int64 {
 }
 
 ///|
-/// MBUI_DRAW_LOG=1 on a real host: each frame's `frame_hash` on the log (DRAWHASH frame hash), for a Tester over the
-/// host's kept text (textrec.mbt) to be checked against: -1 not asked yet, 0 no, 1 yes.
+/// MBUI_DRAW_LOG=1 on a real host: each frame's `frame_hash` on the log (DRAWHASH frame time width height scale hash
+/// stable: 1 when the host asked for output the same on every run, MBUI_BENCH=-1),
+/// for a Tester over the host's kept text (textrec.mbt) given the same frames (`replay_frames`) to be checked against:
+/// -1 not asked yet, 0 no, 1 yes.
 let draw_log : Ref[Int] = Ref::new(-1)
 
 ///|
 let draw_frames : Ref[Int] = Ref::new(0)
 
 ///|
-fn log_drawn() -> Unit {
+fn log_drawn(w : Double, h : Double, scale : Double, t : Double) -> Unit {
   if draw_log.val < 0 {
     draw_log.val = if @host.env("MBUI_DRAW_LOG") == "1" { 1 } else { 0 }
   }
   if draw_log.val == 1 {
     draw_frames.val += 1
-    @host.log("DRAWHASH \{draw_frames.val} \{drawn_hash()}")
+    let stable = if bench.mode < 0 { 1 } else { 0 }
+    @host.log("DRAWHASH \{draw_frames.val} \{t} \{w} \{h} \{scale} \{drawn_hash()} \{stable}")
+    // MBUI_DRAW_DUMP=N: frame N drawn as text (drawn_text), a line each
+    if @host.env("MBUI_DRAW_DUMP") == draw_frames.val.to_string() {
+      for line in drawn_text().split("\n") {
+        @host.log("DRAWDUMP " + line.to_owned())
+      }
+    }
   }
 }
 
@@ -58,6 +90,43 @@ pub fn Tester::frames(self : Tester, n : Int, ms? : Double = 16.0) -> Array[Int6
   for _ in 0..<n {
     self.frame(ms~)
     out.push(self.frame_hash())
+  }
+  out
+}
+
+///|
+/// A real host's frames as its log said them (MBUI_DRAW_LOG: DRAWHASH lines) drawn again, each at its time, the
+/// window's size, scale and stability (Ctx::stable) as it had them: for each, its number, the host's hash and this
+/// one's (as text). A frame at the time this Tester drew its last is that one (Tester::new at the host's first frame:
+/// `time` 16 ms before it).
+pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String, String)] {
+  let out = []
+  let num = fn(s : String) -> Double? {
+    match (try Some(@json.parse(s)) catch { _ => None }) {
+      Some(Number(d, ..)) => Some(d)
+      _ => None
+    }
+  }
+  for v in log.split("\n") {
+    let line = v.to_owned()
+    guard line.find("DRAWHASH ") is Some(i) else { continue }
+    let parts = line.view(start_offset=i + 9).split(" ").map(fn(p) { p.to_owned() }).to_array()
+    guard parts.length() >= 6 else { continue }
+    guard (num(parts[0]), num(parts[1]), num(parts[2]), num(parts[3]), num(parts[4]))
+      is (Some(n), Some(t), Some(w), Some(h), Some(scale)) else {
+      continue
+    }
+    self.w = w
+    self.h = h
+    self.fake.scale = scale
+    if parts.length() >= 7 {
+      bench.mode = if parts[6] == "1" { -1 } else { 0 }
+    }
+    // (the frame a Tester made at this time already, as it was made: its first, Tester::new's `time`)
+    if t != self.fake.time {
+      self.frame(ms=t - self.fake.time)
+    }
+    out.push((n.to_int(), parts[5], drawn_hash().to_string()))
   }
   out
 }

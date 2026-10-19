@@ -4,7 +4,7 @@
 // machine for each host, and only the renderers themselves draw pixels.
 //
 //   MBUI_TEXT_RECORD=1   on a real host: each answer, once, on the log as TEXTREC {…}
-//   Tester::use_text     a test's fake host answers from those lines; what they lack is said (text_missing)
+//   Tester::new(text=)   a test's fake host answers from those lines; what they lack is said (text_missing)
 //
 // The lines: {"m":[size,weight,style],"r":[ascent,descent,line]}, {"s":[size,weight,style,text],"r":[clusters…]}
 // (start, length, advance, key: four numbers each), {"k":[size,weight,style,text],"r":key}, {"g":key,"r":[box…]}.
@@ -19,7 +19,7 @@ priv struct TextTable {
 }
 
 ///|
-/// A Tester's kept text (`use_text`), None: the fake host's own made-up metrics.
+/// A Tester's kept text (Tester::new's `text`), None: the fake host's own made-up metrics.
 let text_table : Ref[TextTable?] = Ref::new(None)
 
 ///|
@@ -139,11 +139,8 @@ fn json_args(j : Json?) -> (String, String)? {
 }
 
 ///|
-/// A Tester's text as `lines` kept it (MBUI_TEXT_RECORD's TEXTREC lines, or the bare JSON of each): from now on the
-/// fake host's metrics, shaping and glyphs are the recording host's, what it lacks said by `text_missing` (and
-/// answered as the fake host would). Given before anything else of a test: the window starts anew (what it held from
-/// its first frame, focus and scroll included, is forgotten) and its frame is drawn again with them.
-pub fn Tester::use_text(self : Tester, lines : String) -> Unit {
+/// The kept text in `lines` (MBUI_TEXT_RECORD's TEXTREC lines, or the bare JSON of each), for a Tester (its `text`).
+fn text_table_of(lines : String) -> TextTable {
   let t : TextTable = {
     metrics: Map([]),
     shapes: Map([]),
@@ -181,19 +178,11 @@ pub fn Tester::use_text(self : Tester, lines : String) -> Unit {
       _ => ()
     }
   }
-  text_table.val = Some(t)
-  // the window anew (its layouts kept from the frames before were the fake host's), its text measured again
-  the_ctx.val = Ctx::new()
-  text_cache.fonts.clear()
-  text_cache.metrics.clear()
-  text_cache.glyphs.clear()
-  text_cache.generation = -1
-  clear_shapes()
-  self.frame()
+  t
 }
 
 ///|
-/// What the kept text (`use_text`) did not have that the view asked of it, once each: "metrics 15|400|0",
+/// What the kept text (Tester::new's `text`) did not have that the view asked of it, once each: "metrics 15|400|0",
 /// "shape 15|400|0|words", "key …", "glyph N".
 pub fn Tester::text_missing(self : Tester) -> Array[String] {
   ignore(self)

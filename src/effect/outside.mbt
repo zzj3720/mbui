@@ -40,16 +40,13 @@ pub fn Runtime::awaited(self : Runtime) -> Array[(String, Int64)] {
 }
 
 ///|
-/// Settled: nothing ready, no fiber waiting for a frame, nothing awaited from outside, and no timer due within
-/// `within` ms (one further on is a refresh some time later, not part of what is shown settling).
-pub fn Runtime::settled(self : Runtime, within? : Int = 1000) -> Bool {
+/// Settled: nothing ready, no fiber waiting for a frame, nothing awaited from outside, and no timer set that what is
+/// shown waits for (every timer but those set `later`: a refresh, a blink, words going back after a while).
+pub fn Runtime::settled(self : Runtime) -> Bool {
   self.ready.is_empty() &&
   self.frame_waiters.is_empty() &&
   self.awaited.is_empty() &&
-  (match self.next_timer() {
-    Some(at) => at - self.now() > within.to_int64()
-    None => true
-  })
+  !self.timers.items.iter().any(t => t.live && !t.later)
 }
 
 ///|

@@ -56,6 +56,8 @@ static double settle_wake = -1;    // when the app asked to be woken, on that cl
 static BOOL app_wants;             // the app (or the host for it) asked for a frame since the last one began
 static BOOL script_wants;          // the script goes on (its next step)
 static int awaiting;               // what the app awaits from the host, as its last frame said
+static BOOL app_settled;           // whether what it shows is settled, as its last frame said (ui's Ctx::settled)
+static char awaited_what[2048];    // what it awaits, as its last frame said
 static mb_outside_fn outside_cb;   // who is told as that is done (host_native.mbt's set_outside)
 static void pump_soon(void);
 static void script_next(void);
@@ -202,14 +204,9 @@ static void script_next(void) {
   pump_soon();
 }
 
-// Whether the app has nothing to do now: it asked for no frame, the host works on nothing for it, and no timer of its
-// is due within MBUI_SETTLE_MS (1000) on the frames' clock (one further on is a refresh some time later, not part of
-// what is shown settling).
-static BOOL settled(void) {
-  static double within = -1;
-  if (within < 0) within = getenv("MBUI_SETTLE_MS") ? atof(getenv("MBUI_SETTLE_MS")) : 1000;
-  return !app_wants && awaiting == 0 && (settle_wake < 0 || settle_wake - settle_clock > within);
-}
+// Whether the app has nothing to do now, as its last frame said (ui's Ctx::settled: no frame asked for, no fiber
+// waiting for one or for the host, no timer set that what is shown waits for), and nothing asked for since.
+static BOOL settled(void) { return app_settled && !app_wants; }
 
 static void pump(void) {
   MBView *v = the_view;
@@ -223,8 +220,10 @@ static void pump(void) {
       dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 4 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ pump(); });
       return;
     }
-    fprintf(stdout, "SETTLE still awaiting %d after 30 s: going on\n", awaiting);
-    fflush(stdout);
+    // what never came is a failure, said: not a picture taken as if it had
+    fprintf(stdout, "SETTLE FAIL: still awaiting after 30 s: %s\n", awaited_what);
+    fprintf(stderr, "SETTLE FAIL: still awaiting after 30 s: %s\n", awaited_what);
+    exit(3);
   }
   awaiting_since = -1;
   settle_clock = frames_drawn * (1000.0 / 60.0);
@@ -646,10 +645,16 @@ static void run_script_step(int step) {
     static int at;
     if (!at) at = getenv("MBUI_SHOT_AT") ? atoi(getenv("MBUI_SHOT_AT")) : settle ? 1 : 30;
     if (settle) {
-      if (step >= at && (settled() || step >= at + 600)) {
-        if (!settled()) fprintf(stdout, "SETTLE not settled at frame %d: taken as it is\n", step);
+      if (step >= at && settled()) {
         shot(getenv("MBUI_SHOT_NAME") ?: "main");
         exit(0);
+      }
+      // ten seconds of the app's own time and still not settled (an animation that never ends, a timer set again and
+      // again that is not `later`): a failure, said, not a picture
+      if (step >= at + 600) {
+        fprintf(stderr, "SETTLE FAIL: not settled after %d frames (awaiting %d%s%s)\n", step, awaiting,
+                awaiting ? ": " : "", awaited_what);
+        exit(3);
       }
     } else {
       if (step == at) shot(getenv("MBUI_SHOT_NAME") ?: "main");
@@ -808,7 +813,11 @@ int32_t mb_host_set_outside(mb_outside_fn f) {
   return 1;
 }
 
-void mb_host_awaiting(int32_t n) { awaiting = n; }
+void mb_host_frame_settled(int32_t settled_now, int32_t n, moonbit_string_t what) {
+  app_settled = settled_now != 0;
+  awaiting = n;
+  snprintf(awaited_what, sizeof awaited_what, "%s", n > 0 ? mb_ns_from_string(what).UTF8String : "");
+}
 
 void mb_host_outside(int32_t kind, int32_t id, int32_t state) {
   if (outside_cb) outside_cb(kind, id, state);

@@ -84,7 +84,7 @@ extern "C" fn ffi_bench_mode() -> Int = "mb_host_bench_mode"
 extern "C" fn ffi_set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Int = "mb_host_set_outside"
 
 ///|
-extern "C" fn ffi_awaiting(n : Int) -> Unit = "mb_host_awaiting"
+extern "C" fn ffi_frame_settled(settled : Bool, awaiting : Int, what : String) -> Unit = "mb_host_frame_settled"
 
 ///|
 extern "C" fn ffi_reduce_motion() -> Int = "mb_host_reduce_motion"
@@ -322,9 +322,10 @@ pub fn set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Bool {
 }
 
 ///|
-/// How many of the app's asks the host has not answered yet, as the frame just built left it (effect.mb's outside).
-pub fn awaiting(n : Int) -> Unit {
-  ffi_awaiting(n)
+/// As the frame just built left it: whether what is shown is settled (ui's Ctx::settled), how many of the app's asks
+/// the host has not answered yet (effect.mb's outside) and what they are ("" when none).
+pub fn frame_settled(settled : Bool, awaiting : Int, what : String) -> Unit {
+  ffi_frame_settled(settled, awaiting, what)
 }
 
 ///|

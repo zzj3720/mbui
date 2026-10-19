@@ -83,8 +83,8 @@ extern "js" fn js_bench_mode() -> Int =
 extern "js" fn js_set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Bool =
   #|(f) => globalThis.__mbhost.setOutside ? (globalThis.__mbhost.setOutside(f), true) : false
 
-extern "js" fn js_awaiting(n : Int) -> Unit =
-  #|(n) => globalThis.__mbhost.awaiting && globalThis.__mbhost.awaiting(n)
+extern "js" fn js_frame_settled(settled : Bool, awaiting : Int, what : String) -> Unit =
+  #|(s, n, w) => globalThis.__mbhost.frameSettled && globalThis.__mbhost.frameSettled(s, n, w)
 
 extern "js" fn js_exit(code : Int) -> Unit =
   #|(c) => globalThis.__mbhost.exit(c)
@@ -236,9 +236,10 @@ pub fn set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Bool {
 }
 
 ///|
-/// How many of the app's asks the host has not answered yet, as the frame just built left it.
-pub fn awaiting(n : Int) -> Unit {
-  js_awaiting(n)
+/// As the frame just built left it: whether what is shown is settled, how many of the app's asks the host has not
+/// answered yet and what they are ("" when none).
+pub fn frame_settled(settled : Bool, awaiting : Int, what : String) -> Unit {
+  js_frame_settled(settled, awaiting, what)
 }
 
 ///|

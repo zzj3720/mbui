@@ -72,9 +72,17 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
     bench_step(c, t3 - t0, t4 - t3)
   }
   drive_frame(c)
-  // what is still awaited from the host: a scripted run's clock stands still while any is (mac_app.m)
+  // whether what is shown is settled, and what is still awaited from the host: a scripted run's clock stands still
+  // while any is, and its screenshot waits for settled (mac_app.m)
   if outside_told.val {
-    @host.awaiting(runtime().awaiting())
+    let rt = runtime()
+    let n = rt.awaiting()
+    let what = if n == 0 {
+      ""
+    } else {
+      rt.awaited().map(a => "\{a.0} (since \{a.1} ms)").join(", ")
+    }
+    @host.frame_settled(c.settled(), n, what)
   }
   if c.wants_frame || bench.mode > 0 {
     h_request_frame()
@@ -123,6 +131,7 @@ fn frame_body(c : Ctx, w : Double, h : Double, scale : Double, t : Double) -> Do
   }
   c.wants_frame = false
   c.wake_at = -1.0
+  c.wake_waited = -1.0
   check_atlas()
   if bench.mode > 0 && c.bench_list != 0 && bench.frames >= 30 {
     c.scroll_list(c.bench_list, bench.speed)

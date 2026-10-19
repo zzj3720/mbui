@@ -487,7 +487,11 @@ int32_t mb_host_set_outside(mb_outside_fn f) {
   outside_cb = f;
   return 1;
 }
-void mb_host_awaiting(int32_t n) { (void)n; }
+void mb_host_frame_settled(int32_t settled, int32_t awaiting, moonbit_string_t what) {
+  (void)settled;
+  (void)awaiting;
+  (void)what;
+}
 void mb_host_outside(int32_t kind, int32_t id, int32_t state) {
   if (outside_cb) outside_cb(kind, id, state);
 }

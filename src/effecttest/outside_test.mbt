@@ -15,12 +15,19 @@ test "settled waits for what is awaited from outside, says what it is, and for t
   assert_eq(rt.awaited(), [("page 2", 40L)])
   rt.outside_end(2)
   assert_true(rt.settled())
+  // a timer what is shown waits for, then one for some time later (a refresh)
   rt.after(500, () => ())
   assert_false(rt.settled())
-  assert_true(rt.settled(within=400))
   rt.advance(500)
-  rt.after(60_000, () => ())
   assert_true(rt.settled())
+  rt.after(60_000, () => (), later=true)
+  assert_true(rt.settled())
+  ignore(rt.fork(async fn() { @effect.sleep(30_000, later=true) }))
+  ignore(rt.settle(max_ms=0))
+  assert_true(rt.settled())
+  ignore(rt.fork(async fn() { @effect.sleep(10) }))
+  ignore(rt.settle(max_ms=0))
+  assert_false(rt.settled())
 }
 
 ///|

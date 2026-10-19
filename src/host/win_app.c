@@ -625,7 +625,11 @@ int32_t mb_host_set_outside(void *f) {
   (void)f;
   return 0;
 }
-void mb_host_awaiting(int32_t n) { (void)n; }
+void mb_host_frame_settled(int32_t settled, int32_t awaiting, void *what) {
+  (void)settled;
+  (void)awaiting;
+  (void)what;
+}
 
 int32_t mb_host_bench_mode(void) {
   const char *b = getenv("MBUI_BENCH");

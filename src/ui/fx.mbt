@@ -68,8 +68,9 @@ fn fx_frame_end(c : Ctx) -> Unit {
   if rt.wants_frame() {
     c.wants_frame = true
   }
+  // (whether what is shown waits for it is the runtime's to say: Ctx::settled asks it)
   match rt.next_timer() {
-    Some(at) => c.wake_at_time(at.to_double())
+    Some(at) => c.wake_at_time(at.to_double(), later=true)
     None => ()
   }
 }
@@ -112,9 +113,10 @@ pub fn Ctx::effect(self : Ctx, key : String, f : async (@effect.Scope) -> Unit) 
 }
 
 ///|
-/// What is shown is settled: the frame just built asks for no other, no fiber waits for one or for the host (an image
-/// decoding, a view loading: hostcall.mbt's tickets) and no timer is due within `within` ms. What a scripted step or a
+/// What is shown is settled: the frame just built asks for no other, no wake is due that it waits for (Ctx::wake_in
+/// without `later`), and the window's runtime is settled — no fiber waits for a frame or for the host (an image
+/// decoding, a view loading: hostcall.mbt's tickets), no timer set that is not `later`. What a scripted step or a
 /// screenshot waits for.
-pub fn Ctx::settled(self : Ctx, within? : Int = 1000) -> Bool {
-  !self.wants_frame && fx.val.settled(within~)
+pub fn Ctx::settled(self : Ctx) -> Bool {
+  !self.wants_frame && self.wake_waited < 0.0 && fx.val.settled()
 }

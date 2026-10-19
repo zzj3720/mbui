@@ -64,8 +64,13 @@ jobs:
           echo 'add_subdirectory(stillfail-host)' >> hermes/CMakeLists.txt
           start=$(date +%s)
           cmake -S hermes -B hb -G Ninja -DCMAKE_BUILD_TYPE=Release -DHERMES_ENABLE_DEBUGGER=OFF -DHERMES_ENABLE_TEST_SUITE=OFF 2>&1 | tail -4
-          cmake --build hb --target hermes-host hermesc libhermes 2>&1 | grep -E 'error|FAILED|warning C4' | head -30 || true
-          echo "Hermes built in $(( $(date +%s) - start )) s"
+          set +e
+          cmake --build hb --target hermes-host hermesc libhermes > hb-build.log 2>&1
+          status=$?
+          set -e
+          grep -E 'error C|error LNK|FAILED' hb-build.log | head -30 || true
+          tail -2 hb-build.log
+          echo "Hermes built (status $status) in $(( $(date +%s) - start )) s"
           find hb -name 'hermes-host.exe' -o -name 'hermesc.exe' -o -name 'hermes.lib' -o -name 'hermes.dll' | xargs ls -l
       - name: Bundles and the dataset
         run: |
@@ -97,3 +102,4 @@ jobs:
           path: |
             run-win.jsonl
             shell-asis.log
+            hb-build.log

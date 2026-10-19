@@ -119,7 +119,7 @@ if [ $PLATFORM = android ]; then
 fi
 if [ $PLATFORM = mac ]; then
   [ -n "${E2E_NOBUILD:-}" ] || APP=stillfail scripts/mac.sh build >$OUT/build.log 2>&1 || { tail -30 $OUT/build.log; exit 1; }
-  EXE=$ROOT/_build/native/release/build/stillfail/stillfail.exe
+  EXE=$ROOT/$MBUI_OUT/release/build/stillfail/stillfail.exe
   export MB_CORE_BUNDLE=$ROOT/out/core/core.js
 fi
 

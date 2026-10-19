@@ -6,7 +6,7 @@ import {
 
 options(
   "is-main": true,
-  targets: { "platform_native.mbt": [ "native" ], "platform_js.mbt": [ "js" ] },
+  targets: { "platform_native.mbt": [ "or", "native", "llvm" ], "platform_js.mbt": [ "js" ] },
   "native-stub": [ "bench_stub.c" ],
   link: {
     "js": { "format": "iife" },

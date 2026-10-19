@@ -22,10 +22,10 @@ if [ $PKG = coredemo ] || [ $PKG = stillfail ]; then
   [ -f out/core/core.js ] || "$D/core.sh" bundle
   export MB_CORE_BUNDLE=${MB_CORE_BUNDLE:-$PWD/out/core/core.js}
 fi
-EXE=_build/native/$MODE/build/$PKG/$PKG.exe
+EXE=$MBUI_OUT/$MODE/build/$PKG/$PKG.exe
 case "${1:-build}" in
   build)
-    /usr/bin/time -p moon build --target native $FLAG src/$PKG 2>&1 | python3 "$D/errs.py"
+    /usr/bin/time -p moon build $MOON_TARGET_FLAGS $FLAG src/$PKG 2>&1 | python3 "$D/errs.py"
     ls -la $EXE ;;
   run)
     ./$EXE ;;

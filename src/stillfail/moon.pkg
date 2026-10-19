@@ -9,7 +9,7 @@ import {
 
 options(
   "is-main": true,
-  targets: { "link_native.mbt": [ "native" ], "link_js.mbt": [ "js" ] },
+  targets: { "link_native.mbt": [ "or", "native", "llvm" ], "link_js.mbt": [ "js" ] },
   "native-stub": [ "core_engine.m" ],
   link: {
     "js": { "format": "iife" },

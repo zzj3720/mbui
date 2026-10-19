@@ -46,38 +46,38 @@ for p in $PLATFORMS; do
     mac)
       MODE=release bash scripts/mac.sh build >/dev/null
       rm -rf out/shot-mac; mkdir -p out/shot-mac
-      MBUI_BENCH=-1 MBUI_SCRIPT=shot MBUI_SHOT_DIR=$PWD/out/shot-mac ./_build/native/release/build/demo/demo.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_SCRIPT=shot MBUI_SHOT_DIR=$PWD/out/shot-mac ./$MBUI_OUT/release/build/demo/demo.exe >/dev/null
       cp out/shot-mac/main.png out/shots/mac.png ;;
     kit)
       MODE=release bash scripts/mac.sh build >/dev/null
       rm -rf out/shot-kit; mkdir -p out/shot-kit
-      MBUI_BENCH=-1 MBUI_SCREEN=kit MBUI_WIN=390x844 MBUI_SCRIPT=kit MBUI_SHOT_DIR=$PWD/out/shot-kit ./_build/native/release/build/demo/demo.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_SCREEN=kit MBUI_WIN=390x844 MBUI_SCRIPT=kit MBUI_SHOT_DIR=$PWD/out/shot-kit ./$MBUI_OUT/release/build/demo/demo.exe >/dev/null
       cp out/shot-kit/kit-1-root.png out/shots/mac-kit.png
       cp out/shot-kit/kit-3-swipe.png out/shots/mac-kit-swipe.png
       names="mac-kit mac-kit-swipe" ;;
     home)
       APP=sffix MODE=release bash scripts/mac.sh build >/dev/null
       rm -rf out/shot-home; mkdir -p out/shot-home
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_SCRIPT=home MBUI_SHOT_DIR=$PWD/out/shot-home ./_build/native/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_SCRIPT=home MBUI_SHOT_DIR=$PWD/out/shot-home ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
       cp out/shot-home/home-1.png out/shots/mac-home.png
       cp out/shot-home/home-2-workspaces.png out/shots/mac-home-sheet.png
       cp out/shot-home/home-4-swipe.png out/shots/mac-home-swipe.png
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_DARK=1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=home-dark MBUI_SHOT_DIR=$PWD/out/shot-home ./_build/native/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_DARK=1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=home-dark MBUI_SHOT_DIR=$PWD/out/shot-home ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
       cp out/shot-home/home-dark.png out/shots/mac-home-dark.png
       names="mac-home mac-home-sheet mac-home-swipe mac-home-dark" ;;
     chat)
       APP=sffix MODE=release bash scripts/mac.sh build >/dev/null
       rm -rf out/shot-chat; mkdir -p out/shot-chat
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_SCRIPT=chat MBUI_SHOT_DIR=$PWD/out/shot-chat ./_build/native/release/build/sffix/sffix.exe >/dev/null
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat-loading MBUI_SCRIPT=shot MBUI_SHOT_NAME=loading MBUI_SHOT_DIR=$PWD/out/shot-chat ./_build/native/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_SCRIPT=chat MBUI_SHOT_DIR=$PWD/out/shot-chat ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat-loading MBUI_SCRIPT=shot MBUI_SHOT_NAME=loading MBUI_SHOT_DIR=$PWD/out/shot-chat ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
       cp out/shot-chat/chat-1.png out/shots/mac-chat.png
       cp out/shot-chat/chat-2-up.png out/shots/mac-chat-up.png
       cp out/shot-chat/loading.png out/shots/mac-chat-loading.png
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_DARK=1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=dark MBUI_SHOT_DIR=$PWD/out/shot-chat ./_build/native/release/build/sffix/sffix.exe >/dev/null
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_GLASS=solid MBUI_SCRIPT=shot MBUI_SHOT_NAME=solid MBUI_SHOT_DIR=$PWD/out/shot-chat ./_build/native/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_DARK=1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=dark MBUI_SHOT_DIR=$PWD/out/shot-chat ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_GLASS=solid MBUI_SCRIPT=shot MBUI_SHOT_NAME=solid MBUI_SHOT_DIR=$PWD/out/shot-chat ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
       # scrolled so a picture is under the bar's glass and messages under the composer's
       rm -rf out/shot-chat-glass; mkdir -p out/shot-chat-glass
-      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_CHAT_UP=1000 MBUI_SCRIPT=chat MBUI_SHOT_DIR=$PWD/out/shot-chat-glass ./_build/native/release/build/sffix/sffix.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat MBUI_CHAT_UP=1000 MBUI_SCRIPT=chat MBUI_SHOT_DIR=$PWD/out/shot-chat-glass ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
       cp out/shot-chat-glass/chat-2-up.png out/shots/mac-chat-glass.png
       cp out/shot-chat/dark.png out/shots/mac-chat-dark.png
       cp out/shot-chat/solid.png out/shots/mac-chat-solid.png
@@ -85,8 +85,8 @@ for p in $PLATFORMS; do
     glass)
       MODE=release bash scripts/mac.sh build >/dev/null
       rm -rf out/shot-glass; mkdir -p out/shot-glass
-      MBUI_BENCH=-1 MBUI_SCREEN=glass MBUI_WIN=390x844 MBUI_SCRIPT=shot MBUI_SHOT_NAME=glass MBUI_SHOT_DIR=$PWD/out/shot-glass ./_build/native/release/build/demo/demo.exe >/dev/null
-      MBUI_BENCH=-1 MBUI_SCREEN=glass MBUI_DARK=1 MBUI_WIN=390x844 MBUI_SCRIPT=shot MBUI_SHOT_NAME=glass-dark MBUI_SHOT_DIR=$PWD/out/shot-glass ./_build/native/release/build/demo/demo.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_SCREEN=glass MBUI_WIN=390x844 MBUI_SCRIPT=shot MBUI_SHOT_NAME=glass MBUI_SHOT_DIR=$PWD/out/shot-glass ./$MBUI_OUT/release/build/demo/demo.exe >/dev/null
+      MBUI_BENCH=-1 MBUI_SCREEN=glass MBUI_DARK=1 MBUI_WIN=390x844 MBUI_SCRIPT=shot MBUI_SHOT_NAME=glass-dark MBUI_SHOT_DIR=$PWD/out/shot-glass ./$MBUI_OUT/release/build/demo/demo.exe >/dev/null
       cp out/shot-glass/glass.png out/shots/mac-glass.png
       cp out/shot-glass/glass-dark.png out/shots/mac-glass-dark.png
       names="mac-glass mac-glass-dark" ;;
@@ -100,7 +100,7 @@ for p in $PLATFORMS; do
       rm -rf out/shot-composer; mkdir -p out/shot-composer
       names=
       for m in compose attach quote sending failed; do
-        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat-$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-composer ./_build/native/release/build/sffix/sffix.exe >/dev/null
+        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat-$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-composer ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
         cp out/shot-composer/$m.png out/shots/mac-composer-$m.png
         names="$names mac-composer-$m"
       done ;;
@@ -112,7 +112,7 @@ for p in $PLATFORMS; do
       rm -rf out/shot-drive; mkdir -p out/shot-drive
       names=
       for m in $DRIVE_MODES; do
-        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_AT=60 MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-drive ./_build/native/release/build/sffix/sffix.exe >/dev/null
+        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_AT=60 MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-drive ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
         cp out/shot-drive/$m.png out/shots/mac-$m.png
         names="$names mac-$m"
       done ;;
@@ -128,7 +128,7 @@ for p in $PLATFORMS; do
       rm -rf out/shot-decide; mkdir -p out/shot-decide
       names=
       for m in $DECIDE; do
-        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-decide ./_build/native/release/build/sffix/sffix.exe >/dev/null
+        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-decide ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
         cp out/shot-decide/$m.png out/shots/mac-decide-$m.png
         names="$names mac-decide-$m"
       done ;;
@@ -145,7 +145,7 @@ for p in $PLATFORMS; do
       rm -rf out/shot-newchat; mkdir -p out/shot-newchat
       names=
       for m in newchat newchat-station newchat-model home-bars place; do
-        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_AT=40 MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-newchat ./_build/native/release/build/sffix/sffix.exe >/dev/null
+        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_AT=40 MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-newchat ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
         cp out/shot-newchat/$m.png out/shots/mac-newchat-$m.png
         names="$names mac-newchat-$m"
       done ;;
@@ -165,7 +165,7 @@ for p in $PLATFORMS; do
       names=
       for m in image pdf video html code md csv none; do
         at=60; [ $m = html ] && at=150
-        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat-preview-$m MBUI_SCRIPT=shot MBUI_SHOT_AT=$at MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-preview ./_build/native/release/build/sffix/sffix.exe >/dev/null
+        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=chat-preview-$m MBUI_SCRIPT=shot MBUI_SHOT_AT=$at MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-preview ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
         cp out/shot-preview/$m.png out/shots/mac-preview-$m.png
         names="$names mac-preview-$m"
       done ;;
@@ -181,7 +181,7 @@ for p in $PLATFORMS; do
       rm -rf out/shot-settings; mkdir -p out/shot-settings
       names=
       for m in $SETTINGS_PAGES; do
-        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=settings-$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-settings ./_build/native/release/build/sffix/sffix.exe >/dev/null
+        MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_FIXTURE=settings-$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=$m MBUI_SHOT_DIR=$PWD/out/shot-settings ./$MBUI_OUT/release/build/sffix/sffix.exe >/dev/null
         cp out/shot-settings/$m.png out/shots/mac-settings-$m.png
         names="$names mac-settings-$m"
       done ;;

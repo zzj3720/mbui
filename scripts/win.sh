@@ -14,7 +14,7 @@ MODE=${MODE:-release}
 FLAG=""; [ "$MODE" = release ] && FLAG=--release
 PKG=${APP:-demo}
 M=out/win/mod
-EXE=$M/_build/native/$MODE/build/$PKG/$PKG.exe
+EXE=$M/$MBUI_OUT/$MODE/build/$PKG/$PKG.exe
 
 sync() {
   mkdir -p $M/src
@@ -43,7 +43,7 @@ shot_dir() {
 case "${1:-build}" in
   build)
     sync
-    (cd $M && time moon build --target native $FLAG src/$PKG)
+    (cd $M && time moon build $MOON_TARGET_FLAGS $FLAG src/$PKG)
     ls -la $EXE ;;
   run)
     ./$EXE ;;

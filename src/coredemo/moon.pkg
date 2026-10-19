@@ -10,7 +10,7 @@ import {
 
 options(
   "is-main": true,
-  targets: { "env_native.mbt": [ "native" ], "env_js.mbt": [ "js" ] },
+  targets: { "env_native.mbt": [ "or", "native", "llvm" ], "env_js.mbt": [ "js" ] },
   "native-stub": [ "core_engine.m" ],
   link: {
     "js": { "format": "iife" },

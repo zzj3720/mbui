@@ -1,0 +1,51 @@
+# The LLVM backend spike on Windows (docs/llvm-spike.md): the nightly toolchain's C backend and its LLVM backend
+# build the demo with MSVC on the same runner, each takes the scripted screenshot, both are compared with
+# goldens/windows.png.
+name: llvm-spike
+on:
+  push:
+    branches: [llvm-spike]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Install the nightly MoonBit (with the LLVM backend's core)
+        shell: pwsh
+        run: |
+          $env:MOONBIT_INSTALL_VERSION = "nightly"
+          irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+          "$env:USERPROFILE\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $env:Path = "$env:USERPROFILE\.moon\bin;$env:Path"
+          moon -C "$env:USERPROFILE\.moon\lib\core" bundle --warn-list -a --target llvm
+          Get-ChildItem "$env:USERPROFILE\.moon\lib" | Select-Object Name, Length
+      - name: Build, C backend (nightly)
+        run: |
+          moon version --all
+          s=$(date +%s.%N); MBUI_TARGET_DIR=_build-nn scripts/win.sh build; e=$(date +%s.%N)
+          echo "nightly native: $(echo "$e - $s" | bc) s, $(stat -c %s out/win/mod/_build-nn/native/release/build/demo/demo.exe) bytes"
+      - name: Build, LLVM backend (nightly)
+        run: |
+          s=$(date +%s.%N); MBUI_TARGET=llvm MBUI_TARGET_DIR=_build-nl scripts/win.sh build; e=$(date +%s.%N)
+          echo "nightly llvm: $(echo "$e - $s" | bc) s, $(stat -c %s out/win/mod/_build-nl/llvm/release/build/demo/demo.exe) bytes"
+      - name: Screenshots
+        run: |
+          MBUI_TARGET_DIR=_build-nn scripts/win.sh shot && mkdir -p out/shots && cp out/shot-win/main.png out/shots/windows-nn.png
+          MBUI_TARGET=llvm MBUI_TARGET_DIR=_build-nl scripts/win.sh shot && cp out/shot-win/main.png out/shots/windows-nl.png
+          ls -la out/shots
+      - name: Compare with the golden
+        run: |
+          mkdir -p out/node && cd out/node && npm init -y >/dev/null && npm i pngjs pixelmatch >/dev/null && cd ../..
+          for c in nn nl; do node scripts/imgdiff.mjs goldens/windows.png out/shots/windows-$c.png out/shots/windows-$c-review.png || true; done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: llvm-spike-windows
+          path: out/shots

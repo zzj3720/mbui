@@ -5,6 +5,7 @@
 # stillfail with the still.fail core in them);
 # ENV="K=V;K2=V2" gives `run` the app's environment variables (MainActivity sets them before the app starts).
 #   scripts/android.sh build | emu | run [script] | shot NAME | record NAME SECONDS [drive] | log | listen-test | stop | delete
+# VARIANT=release builds the beta app instead of the debug build (android/app/build.gradle.kts; scripts/beta.sh).
 # moon.pkg cannot choose files per OS, so the build runs on a copy of the
 # module in out/android/mod, where photos shows src/photos/pictures/android.mbt.
 set -e
@@ -24,7 +25,8 @@ SERIAL=emulator-$PORT
 OUT=out/android
 PKG=${APP:-demo}
 M=$OUT/mod
-[ -x /usr/libexec/java_home ] && export JAVA_HOME=$(/usr/libexec/java_home -v 20 2>/dev/null || /usr/libexec/java_home)
+# (a JAVA_HOME already set is kept: Mini1's runner has Homebrew's JDK, which java_home does not list)
+[ -z "${JAVA_HOME:-}" ] && [ -x /usr/libexec/java_home ] && export JAVA_HOME=$(/usr/libexec/java_home -v 20 2>/dev/null || /usr/libexec/java_home)
 export ANDROID_HOME=$SDK
 size() { wc -c < "$1" | tr -d ' '; }
 CFLAGS="-I$MOON_HOME/include -Isrc/host -fPIC -fwrapv -fno-strict-aliasing -Wno-unused-value -O2 -DMOONBIT_ALLOCATOR=MOONBIT_ALLOCATOR_SYSTEM"
@@ -104,7 +106,22 @@ core_libs() {
   echo "core parts: $(cd $jni && for f in *.so; do printf '%s %s, ' $f $(size $f); done)"
 }
 
+# HBC_CACHE (a directory; scripts/beta.sh): core.hbc kept there by what it is made of (ember's commit, this repo's
+# core/ and scripts/core.sh, the entry), taken from there when both checkouts are clean and it is there already.
+hbc_key() {
+  [ -n "${HBC_CACHE:-}" ] && [ -z "${CORE_SCRIPT:-}" ] || return 1
+  git diff --quiet HEAD -- core scripts/core.sh 2>/dev/null && [ -z "$(git -C "$EMBER" status --porcelain -uno 2>/dev/null)" ] || return 1
+  echo "$(git -C "$EMBER" rev-parse HEAD)-$(git rev-parse HEAD:core)-$(git hash-object scripts/core.sh)-${ENTRY:-media-hermes}" \
+    | shasum -a 256 | cut -c1-24
+}
+
 core_hbc() {
+  local key
+  if key=$(hbc_key) && [ -f "$HBC_CACHE/$key.hbc" ]; then
+    cp -p "$HBC_CACHE/$key.hbc" $apk/assets/core.hbc
+    echo "core.hbc $(size $apk/assets/core.hbc) (cached: $key)"
+    return
+  fi
   if [ -n "${CORE_SCRIPT:-}" ]; then
     # a script in the core's place (listen-test: core/listen-test.js)
     EMBER=$EMBER "$D/core.sh" hermes-script "$CORE_SCRIPT" || { echo "android.sh: $CORE_SCRIPT did not compile" >&2; exit 1; }
@@ -113,7 +130,11 @@ core_hbc() {
       || { echo "android.sh: no core for the app (scripts/core.sh hermes failed)" >&2; exit 1; }  # with media, as on macOS
   fi
   cp -p out/core/core.hbc $apk/assets/
-  echo "core.hbc $(size $apk/assets/core.hbc)"
+  if [ -n "$key" ]; then
+    mkdir -p "$HBC_CACHE" && cp -p out/core/core.hbc "$HBC_CACHE/$key.hbc.tmp" && mv "$HBC_CACHE/$key.hbc.tmp" "$HBC_CACHE/$key.hbc"
+    ls -t "$HBC_CACHE"/*.hbc | tail -n +9 | xargs rm -f  # the newest 8
+  fi
+  echo "core.hbc $(size $apk/assets/core.hbc)${key:+ (made, kept as $key)}"
 }
 
 now() { python3 -c 'import time;print(time.time())'; }
@@ -169,9 +190,11 @@ case "${1:-build}" in
     echo "libmbui.so $(size android/app/src/main/jniLibs/arm64-v8a/libmbui.so) bytes in $(secs $T0 $T4) s"
     if [ -n "$HBC" ]; then wait $HBC || { cat $OUT/core-hbc.log; exit 1; }; cat $OUT/core-hbc.log; fi
     T5=$(now)
-    (cd android && ./gradlew -q assembleDebug 2>&1 | grep -v '^$' | tail -20)
+    V=${VARIANT:-debug}
+    # (Gradle's failure is the build's: an APK of an earlier build must not pass for this one's)
+    (cd android && set -o pipefail && ./gradlew -q assemble$(echo ${V:0:1} | tr a-z A-Z)${V:1} 2>&1 | { grep -v '^$' || true; } | tail -20)
     T6=$(now)
-    ls -la android/app/build/outputs/apk/debug/*.apk
+    ls -la android/app/build/outputs/apk/$V/*.apk
     echo "android.sh: APP=$PKG APK in $(secs $T0 $T6) s: moonc $(secs $T0 $T1) s, cc $(secs $T1 $T2) s," \
       "core's .so wait $(secs $T2 $T3) s, link $(secs $T3 $T4) s, core.hbc wait $(secs $T4 $T5) s, gradle $(secs $T5 $T6) s"
     ;;

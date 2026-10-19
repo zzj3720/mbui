@@ -1,0 +1,53 @@
+# The beta test app: still.fail's Android app in mbui as an app of its own (fail.still.mbui, "still.fail mbui"),
+# built on every push to main and published on the rolling prerelease `beta`:
+#   https://github.com/zzj3720/mbui/releases/download/beta/mbui-beta.apk
+# It runs on Mini1's runner (labels mbui-mini1), where everything stays warm between runs: MoonBit (the latest
+# release, installed again only when there is a newer one), still.fail's sources for the core, core.hbc by its
+# inputs, moonc's objects, Gradle's daemon and caches (scripts/beta.sh). It does not wait for ci.yml's tests.
+#
+# Only main's pushes and dispatches by the repository's own people: never a pull request (the runner is one of our
+# machines; outside contributors' workflow runs need approval, the repository's Actions setting).
+name: beta
+on:
+  push:
+    branches: [main, beta-release]  # (beta-release: measuring before the merge; goes before it)
+  workflow_dispatch:
+
+permissions:
+  contents: write  # the release, its tag and its assets
+
+# one at a time; a push while one runs waits (a newer push replaces a waiting one)
+concurrency:
+  group: beta
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    if: github.repository == 'zzj3720/mbui' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: [self-hosted, mbui-mini1]
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # not actions/checkout: its clean would take the build's outputs (out/, android/app/build) that the next run
+      # builds on; untracked files that are not ignored go, ignored ones stay
+      - name: Checkout
+        run: |
+          [ -d .git ] || { git init -q && git remote add origin https://github.com/$GITHUB_REPOSITORY.git; }
+          git fetch -q --no-tags --depth=1 origin $GITHUB_SHA
+          git -c advice.detachedHead=false checkout -q --force --detach FETCH_HEAD
+          git clean -q -ffd
+          git log -1 --format='%h %s'
+      - name: Tools
+        run: scripts/beta.sh tools
+      - name: still.fail's sources
+        run: scripts/beta.sh ember
+      - name: Build
+        env:
+          MBUI_KEYSTORE_B64: ${{ secrets.MBUI_BETA_KEYSTORE_B64 }}
+          MBUI_KEYSTORE_PASSWORD: ${{ secrets.MBUI_BETA_KEYSTORE_PASSWORD }}
+          MBUI_KEY_ALIAS: ${{ secrets.MBUI_BETA_KEY_ALIAS }}
+          MBUI_KEY_PASSWORD: ${{ secrets.MBUI_BETA_KEY_PASSWORD }}
+        run: scripts/beta.sh build
+      - name: Publish
+        run: scripts/beta.sh publish

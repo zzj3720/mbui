@@ -96,6 +96,18 @@ scripts/shots.sh windows                        # screenshot compared with golde
 CI (`.github/workflows/windows.yml`) builds it on `windows-latest`, runs the
 `shot` and `ime` scripts and compares the screenshot with the golden.
 
+## The beta app
+
+Every push to main builds still.fail's Android app in mbui (`APP=stillfail`) as a
+test app of its own, **still.fail mbui** (`fail.still.mbui`, installable beside
+still.fail's apps), minified and signed, and publishes it on the rolling
+prerelease `beta`:
+https://github.com/zzj3720/mbui/releases/download/beta/mbui-beta.apk
+(`.github/workflows/beta.yml` on a self-hosted runner, `scripts/beta.sh`; the
+still.fail sources the core is built from are pinned in `core/ember.rev`).
+`VARIANT=release APP=stillfail scripts/android.sh build` builds it locally
+(unsigned without the key).
+
 ## Licence
 
 MIT, Copyright (c) 2026 still.fail contributors: see `LICENSE`. Third-party

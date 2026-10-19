@@ -127,6 +127,7 @@ pub fn Tester::new(
     time,
     scale,
     wants: false,
+    changed: false,
     wake: -1.0,
     instances: 0,
     ime_active: false,
@@ -215,6 +216,7 @@ pub fn Tester::finish(self : Tester, kind : Int, id : Int, ok? : Bool = true) ->
     _ => return
   }
   self.fake.wants = true
+  self.fake.changed = true
   self.fake.finished.push((kind, id))
   on_outside(kind, id, state)
 }
@@ -276,6 +278,7 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
     }
   }
   self.fake.wants = false
+  self.fake.changed = false
   // a scripted run's `resize`
   match tester_size.val {
     Some((w, h)) => {
@@ -296,12 +299,13 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
 /// `unsettled_ok`: it goes on instead (a test of what runs on).
 pub fn Tester::settle(self : Tester, max? : Int = 600, unsettled_ok? : Bool = false) -> Int {
   let mut n = 0
-  while n < max && (g().frame_waited || self.fake.wants) {
+  while n < max && (g().frame_waited || self.fake.changed) {
     self.frame()
     n = n + 1
   }
-  if !unsettled_ok && n >= max && (g().frame_waited || self.fake.wants) {
-    let why = "Tester::settle: not settled after \{max} frames: " + g().unsettled()
+  if !unsettled_ok && n >= max && (g().frame_waited || self.fake.changed) {
+    let why = "Tester::settle: not settled after \{max} frames: " +
+      (if self.fake.changed { "the host's change not drawn yet" } else { g().unsettled() })
     println(why)
     abort(why)
   }

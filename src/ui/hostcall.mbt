@@ -7,7 +7,11 @@ struct FakeHost {
   mut time : Double
   /// device pixels a point, as a host's window has them (2: a Retina screen; a recording host's, Tester::new(scale=))
   mut scale : Double
+  /// a frame asked of it (by the app, an endless animation's too)
   mut wants : Bool
+  /// something of its own changed that the next frame takes (a decode done, a view ready, the system's look): what
+  /// Tester::settle draws on for, beside what the app waits for
+  mut changed : Bool
   mut wake : Double
   mut instances : Int
   mut ime_active : Bool
@@ -71,6 +75,7 @@ fn fake_image(f : FakeHost, ow : Int, oh : Int, max_px : Int) -> Int {
   let id = f.images.length() + 1
   // the decode will be done by the next frame, which it asks for
   f.wants = true
+  f.changed = true
   f.images[id] = {
     state: if ow > 0 { 0 } else { -1 },
     w: (ow.to_double() * k).round(),

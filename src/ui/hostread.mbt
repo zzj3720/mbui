@@ -74,6 +74,7 @@ pub fn app_version() -> Int {
 pub fn Tester::set_dark(self : Tester, dark : Bool) -> Unit {
   self.fake.dark = dark
   self.fake.wants = true
+  self.fake.changed = true
 }
 
 ///|
@@ -81,6 +82,7 @@ pub fn Tester::set_dark(self : Tester, dark : Bool) -> Unit {
 pub fn Tester::set_window_inset(self : Tester, inset : Bool) -> Unit {
   self.fake.inset = inset
   self.fake.wants = true
+  self.fake.changed = true
 }
 
 ///|
@@ -92,4 +94,5 @@ pub fn Tester::set_env(self : Tester, name : String, value : String) -> Unit {
     self.fake.env[name] = value
   }
   self.fake.wants = true
+  self.fake.changed = true
 }

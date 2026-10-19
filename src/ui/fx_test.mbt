@@ -175,7 +175,7 @@ test "an endless animation (a spinner) is drawn on, and what is shown is settled
       // a spinner's turn: never over
       c.request_frame(endless=true)
       let a = c.now() / 800.0
-      c.box(w=Px(10.0 + (a - a.floor()) * 10.0), h=Px(10.0), fn() {  })
+      c.box(w=Px(10.0 + (a - a.floor()) * 10.0), h=Px(10.0), fn() {  }) |> ignore
       if c.now() < ends_at.val {
         c.request_frame()
       }

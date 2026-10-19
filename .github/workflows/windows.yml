@@ -60,9 +60,9 @@ jobs:
           mkdir -p out/webviews
           D=$(cygpath -w "$PWD/out/webviews")
           EXE=out/win/mod/_build/native/release/build/webdemo/webdemo.exe
-          MBUI_BENCH=-1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=webviews MBUI_SHOT_DIR="$D" ./$EXE 2>&1 | tee out/webviews/webviews.log
-          # the system's runtime looked for elsewhere (where there is none): every view says it cannot be shown
-          WEBVIEW2_BROWSER_EXECUTABLE_FOLDER='C:\no-webview2-here' MBUI_BENCH=-1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=webviews-none \
+          MBUI_SHOT_SCREEN=1 MBUI_BENCH=-1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=webviews MBUI_SHOT_DIR="$D" ./$EXE 2>&1 | tee out/webviews/webviews.log
+          # the runtime looked for where there is none (as on a machine without it): every view says it cannot be shown
+          MBUI_WEBVIEW2_DIR='C:\no-webview2-here' MBUI_BENCH=-1 MBUI_SCRIPT=shot MBUI_SHOT_NAME=webviews-none \
             MBUI_SHOT_DIR="$D" ./$EXE 2>&1 | tee out/webviews/webviews-none.log
           for want in "view 1: page loaded" "view 2: site page loaded" "view 1: told 1" "view 2: told 0" "view 2: told 1" \
                       "site asked GET /style.css" "site asked POST /api/echo (page false, body 7 bytes)" "SHOT .* ok"; do

@@ -33,6 +33,8 @@ void mb_render_set_size(int pw, int ph, double w, double h, double scale);
 void mb_render_present(const double *inst, int32_t count, double r, double g, double b);
 // renders the last presented frame again into a texture and writes a PNG
 int mb_render_snapshot(const wchar_t *path);
+// what the screen shows of the window's client area, as a PNG
+int mb_screen_snapshot(void *hwnd, const wchar_t *path);
 void mb_atlas_upload(int x, int y, int w, int h, const void *rgba);
 extern int mb_atlas_size;
 void *mb_render_device(void);  // ID3D11Device *

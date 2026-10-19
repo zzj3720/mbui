@@ -415,6 +415,13 @@ static void shot(const char *name) {
   char u[2048];
   WideCharToMultiByte(CP_UTF8, 0, p, -1, u, sizeof u, NULL, NULL);
   fprintf(stdout, "SHOT %s %s\n", u, ok ? "ok" : "failed");
+  // MBUI_SHOT_SCREEN=1: also what the screen shows (<name>-screen.png)
+  const char *sc = getenv("MBUI_SHOT_SCREEN");
+  if (sc && *sc == '1') {
+    _snwprintf(p, 1024, L"%ls\\%hs-screen.png", shot_dir, name);
+    p[1023] = 0;
+    fprintf(stdout, "SHOT screen %s\n", mb_screen_snapshot(hwnd, p) ? "ok" : "failed");
+  }
   fflush(stdout);
 }
 

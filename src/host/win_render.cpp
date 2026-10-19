@@ -22,6 +22,8 @@
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "dcomp.lib")
+#pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "user32.lib")
 #pragma comment(lib, "windowscodecs.lib")
 #pragma comment(lib, "ole32.lib")
 
@@ -755,6 +757,41 @@ int mb_render_snapshot(const wchar_t *path) {
   view->Release();
   tex->Release();
   if (rtv) ctx->OMSetRenderTargets(1, &rtv, NULL);
+  return ok;
+}
+
+// What the screen shows of the window's client area (the desktop's composition: the canvas over the native views),
+// as a PNG: a check of what the snapshot above puts together itself.
+int mb_screen_snapshot(void *hwnd, const wchar_t *path) {
+  RECT rc;
+  GetClientRect((HWND)hwnd, &rc);
+  POINT o = {0, 0};
+  ClientToScreen((HWND)hwnd, &o);
+  int w = rc.right, h = rc.bottom;
+  if (w <= 0 || h <= 0) return 0;
+  HDC screen = GetDC(NULL), mem = CreateCompatibleDC(screen);
+  BITMAPINFO bi = {};
+  bi.bmiHeader.biSize = sizeof bi.bmiHeader;
+  bi.bmiHeader.biWidth = w;
+  bi.bmiHeader.biHeight = -h;
+  bi.bmiHeader.biPlanes = 1;
+  bi.bmiHeader.biBitCount = 32;
+  void *bits = NULL;
+  HBITMAP bm = CreateDIBSection(mem, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+  int ok = 0;
+  if (bm) {
+    HGDIOBJ was = SelectObject(mem, bm);
+    if (BitBlt(mem, 0, 0, w, h, screen, o.x, o.y, SRCCOPY | CAPTUREBLT)) {
+      GdiFlush();
+      uint8_t *px = (uint8_t *)bits;
+      for (int i = 0; i < w * h; i++) px[i * 4 + 3] = 255;
+      ok = write_png(path, px, w, h, w * 4);
+    }
+    SelectObject(mem, was);
+    DeleteObject(bm);
+  }
+  DeleteDC(mem);
+  ReleaseDC(NULL, screen);
   return ok;
 }
 

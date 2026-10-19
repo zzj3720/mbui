@@ -4,7 +4,8 @@
 // unblended) where one shows and what it paints after the hole draws over it, as apple_views.m and NativeViews.java
 // have it. Kind 2, a page of HTML, and kind 3, a site whose every request the app answers (view_site_*); no video
 // player yet (kind 1 opens none: 0). Where WebView2's runtime is not installed (or DirectComposition could not be
-// had), view_open answers 0 and the app says it cannot show it.
+// had), view_open answers 0 and the app says it cannot show it. MBUI_WEBVIEW2_DIR: a fixed-version runtime's folder
+// instead of the installed runtime (one that is not there: as on a machine without it).
 //
 // Both kinds load from a host of their own that never reaches the network (https://*.stillfail.invalid, its requests
 // taken by WebResourceRequested), as Android's WebView does: a page's HTML from here, a site's from the app.
@@ -609,7 +610,7 @@ static void make_env(void) {
   DWORD n = GetTempPathW(MAX_PATH, dir);
   wcscpy_s(dir + n, 32, L"mbui-webview2");
   HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
-      NULL, dir, NULL,
+      runtime_dir(), dir, NULL,
       Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
           [](HRESULT r, ICoreWebView2Environment *e) -> HRESULT {
             if (FAILED(r) || !e) {
@@ -631,11 +632,17 @@ static void make_env(void) {
   }
 }
 
+// MBUI_WEBVIEW2_DIR: a fixed-version runtime's folder to use instead of the installed one (NULL: the installed one)
+static const wchar_t *runtime_dir(void) {
+  const wchar_t *d = _wgetenv(L"MBUI_WEBVIEW2_DIR");
+  return d && *d ? d : NULL;
+}
+
 // Whether WebView2's runtime is installed (looked for once).
 static bool runtime_here(void) {
   if (runtime) return runtime > 0;
   LPWSTR ver = NULL;
-  HRESULT hr = GetAvailableCoreWebView2BrowserVersionString(NULL, &ver);
+  HRESULT hr = GetAvailableCoreWebView2BrowserVersionString(runtime_dir(), &ver);
   runtime = SUCCEEDED(hr) && ver ? 1 : -1;
   if (runtime > 0) vlog("view: WebView2 runtime %s", utf8(ver).c_str());
   else vlog("view: no WebView2 runtime (0x%08lx): web views cannot be shown", (unsigned long)hr);

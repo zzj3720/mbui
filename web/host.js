@@ -19,10 +19,12 @@
   window.__logs = [];
 
   // ---- frames ----
+  let frames = 0;
   function tick() {
     pending = false;
     resize();
     cb.frame(cssW, cssH, dpr, performance.now());
+    frames++;
   }
   H.requestFrame = () => {
     if (!pending && cb) {
@@ -31,6 +33,32 @@
     }
   };
   H.wakeAfter = (ms) => setTimeout(H.requestFrame, ms);
+
+  // ---- what the app awaits of the host (effect.mb's outside: src/ui/hostcall.mbt) ----
+  // The app is told (outside(kind, id, state)) as the work it asked for is done: kind 1 an image decoded (id: the
+  // image), 2 a native view ready (a page loaded, a video's first frame showable); state 1 done, -1 failed, once an
+  // item; and (a view, 0) each time it waits on the app instead (a player's read asked of it): not the host's work
+  // until the app answers. Always from the event loop, never inside a call of the app's (a frame, a read answered).
+  // Each frame says at its end whether what it shows is settled (ui's Ctx::settled: no frame asked for, nothing
+  // awaited of the host, no timer set that what is shown waits for), how many of its asks the host has not answered
+  // and what they are.
+  let outside = null, appSettled = false, awaiting = 0, awaited = '';
+  const told = new Set();
+  H.setOutside = (f) => { outside = f; return true; };
+  H.frameSettled = (settled, n, what) => { appSettled = !!settled; awaiting = n; awaited = what; };
+  function tell(kind, id, state) {
+    if (!outside) return;
+    if (state !== 0) {
+      const k = kind + ':' + id;
+      if (told.has(k)) return;
+      told.add(k);
+    }
+    queueMicrotask(() => outside(kind, id, state));
+  }
+  // Settled: as the last frame said, and no frame asked for since. What a screenshot waits for
+  // (page.waitForFunction(() => __mbhost.settled())); unsettled() says what it is not settled on.
+  H.settled = () => frames > 0 && appSettled && !pending;
+  H.unsettled = () => ({ frames, settled: appSettled, pending, awaiting, awaited });
 
   function resize() {
     dpr = window.devicePixelRatio || 1;
@@ -500,6 +528,12 @@
     return viewLayer;
   }
   const info = (v) => v.info || (v.info = [-1, 0, 0, 0, 0, 0, 0, 0]);
+  // a view ready (or failed) told to the app, once; not once it is closed (the app let it go)
+  const ready = (id, v, state) => {
+    if (v.ready || !views.has(id)) return;
+    v.ready = true;
+    tell(2, id, state);
+  };
   H.viewOpen = (kind, arg) => {
     if (kind !== 1 && kind !== 2) return 0;
     const id = ++nextView;
@@ -518,18 +552,28 @@
         v.info[4] = el.videoHeight;
         H.requestFrame();
       });
-      el.addEventListener('loadeddata', () => { v.info[6] = 1; H.requestFrame(); });
-      el.addEventListener('error', () => { v.state = -1; H.requestFrame(); });
+      // its first frame can be shown: ready for the app
+      el.addEventListener('loadeddata', () => { v.info[6] = 1; ready(id, v, 1); H.requestFrame(); });
+      el.addEventListener('error', () => { v.state = -1; ready(id, v, -1); H.requestFrame(); });
       v.el = el;
       v.type = arg;
       // the whole file read through the app, a part at a time, then played
-      v.ask = (offset) => { const r = { id: ++v.nextRead, offset, length: 4 << 20 }; v.reads.push(r); v.waiting.set(r.id, r); H.requestFrame(); };
+      // (the player waits on the app's bytes now: not the host's work until they come)
+      v.ask = (offset) => {
+        const r = { id: ++v.nextRead, offset, length: 4 << 20 };
+        v.reads.push(r);
+        v.waiting.set(r.id, r);
+        if (!v.ready) tell(2, id, 0);
+        H.requestFrame();
+      };
       v.ask(0);
     } else {
       const el = document.createElement('iframe');
       el.setAttribute('sandbox', 'allow-scripts');
       el.style.cssText = 'position:absolute;border:0;background:#fff';
-      el.addEventListener('load', () => { v.state = 1; v.info[6] = 1; H.requestFrame(); });
+      // loaded: what a screenshot shows of it is the page itself (in the page's own picture)
+      el.addEventListener('load', () => { v.state = 1; v.info[6] = 1; ready(id, v, 1); H.requestFrame(); });
+      el.addEventListener('error', () => { v.state = -1; ready(id, v, -1); H.requestFrame(); });
       el.srcdoc = arg;
       v.info[5] = new TextEncoder().encode(arg).length;
       v.el = el;
@@ -587,7 +631,7 @@
   H.viewReadAnswer = (id, req, data, total) => {
     const v = views.get(id);
     if (!v || !v.waiting.delete(req)) return;
-    if (total === -2) { v.state = -1; return; }
+    if (total === -2) { v.state = -1; ready(id, v, -1); H.requestFrame(); return; }
     const part = new Uint8Array(data);
     v.parts.push(part);
     v.have += part.length;
@@ -632,8 +676,10 @@
       Object.assign(im, { state: 1, tex, w: bmp.width, h: bmp.height, ow, oh });
       bmp.close();
     } catch (e) {
+      if (!images.has(id)) return;
       im.state = -1;
     }
+    tell(1, id, im.state);
     H.requestFrame();
   }
   H.imageLoad = (src, maxPx) => {
@@ -641,7 +687,13 @@
     images.set(id, { state: 0 });
     fetch(src).then((r) => (r.ok ? r.blob() : Promise.reject(r.status)))
       .then((b) => decodeImage(id, b, maxPx))
-      .catch(() => { const im = images.get(id); if (im) im.state = -1; H.requestFrame(); });
+      .catch(() => {
+        const im = images.get(id);
+        if (!im || im.state !== 0) return;
+        im.state = -1;
+        tell(1, id, -1);
+        H.requestFrame();
+      });
     return id;
   };
   H.imageLoadBytes = (bytes, maxPx) => {

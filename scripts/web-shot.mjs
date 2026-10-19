@@ -17,9 +17,15 @@ await new Promise((r) => server.listen(0, r));
 const browser = await chromium.launch();
 const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
 // QUERY: more of the page's query (MBUI_SCREEN=kit: the demo's kit screen)
+fs.rmSync(process.argv[2], { force: true });
 await page.goto(`http://127.0.0.1:${server.address().port}/?bench=-1${process.env.QUERY ? '&' + process.env.QUERY : ''}`);
 await page.waitForFunction(() => window.__mb !== undefined);
-await page.waitForTimeout(Number(process.env.WAIT || 800));
-await page.screenshot({ path: process.argv[2] });
+// shot once the app is settled (web/host.js __mbhost.settled: as its last frame said, no frame asked for since);
+// SETTLE_TIMEOUT (30000 ms) without is a failure, said with what it awaits, and no picture
+const settled = await page.waitForFunction(() => __mbhost.settled(), null, { timeout: Number(process.env.SETTLE_TIMEOUT || 30000) })
+  .then(() => true, () => false);
+if (settled) await page.screenshot({ path: process.argv[2] });
+else console.log(`SETTLE FAIL ${process.argv[2]}: not settled:`, JSON.stringify(await page.evaluate(() => __mbhost.unsettled())));
 await browser.close();
 server.close();
+process.exit(settled ? 0 : 1);

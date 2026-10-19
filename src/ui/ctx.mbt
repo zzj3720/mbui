@@ -641,7 +641,7 @@ pub fn Ctx::request_frame(self : Ctx, endless? : Bool = false, loc~ : SourceLoc)
   // asked between frames (a host's callback, a timer's): the frame's own asking (on_frame's end) is past, so the
   // host is told now, else nothing comes (the next frame's start clears wants_frame)
   if !in_frame.val {
-    h_request_frame()
+    h_request_frame(endless~)
   }
   if !endless {
     self.frame_waited = true

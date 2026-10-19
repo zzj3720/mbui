@@ -92,7 +92,7 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
     @host.frame_settled(settled, n, what)
   }
   if c.wants_frame || bench.mode > 0 {
-    h_request_frame()
+    h_request_frame(endless=!c.frame_waited && bench.mode <= 0)
   } else if c.wake_at > 0.0 {
     h_wake_after(dmax(c.wake_at - t, 1.0))
   }

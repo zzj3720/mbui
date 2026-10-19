@@ -9,8 +9,8 @@ struct FakeHost {
   mut scale : Double
   /// a frame asked of it (by the app, an endless animation's too)
   mut wants : Bool
-  /// something of its own changed that the next frame takes (a decode done, a view ready, the system's look): what
-  /// Tester::settle draws on for, beside what the app waits for
+  /// a frame asked of it but by an endless animation (an input, a decode done, a view ready, the system's look): what
+  /// Tester::settle draws on for
   mut changed : Bool
   mut wake : Double
   mut instances : Int
@@ -131,9 +131,16 @@ fn h_platform() -> Int {
 let host_platform : Ref[Int] = { val: -1 }
 
 ///|
-fn h_request_frame() -> Unit {
+/// The next frame asked of the host; `endless`: only for an endless animation (Ctx::request_frame), which a test's
+/// settle does not draw on for.
+fn h_request_frame(endless? : Bool = false) -> Unit {
   match fake.val {
-    Some(f) => f.wants = true
+    Some(f) => {
+      f.wants = true
+      if !endless {
+        f.changed = true
+      }
+    }
     None => @host.request_frame()
   }
 }

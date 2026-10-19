@@ -385,6 +385,8 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   r.len = len;
   r.load = l;
   [self.pending addObject:r];
+  // the player waits on the app's bytes now: not the host's work until they come (apple.h's mb_host_outside, 0)
+  mb_host_outside(2, self.vid, 0);
   mb_host_request_frame();
 }
 
@@ -604,10 +606,11 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   mb_host_request_frame();
 }
 
-// Its readiness told to the app, once (apple.h's mb_host_outside: kind 2).
+// Its readiness told to the app (apple.h's mb_host_outside: kind 2), as it comes: ready (a page loaded and its picture
+// taken, a player's first frame), or failed.
 - (void)tell:(int)state {
-  if (self.told) return;
-  self.told = YES;
+  if (self.told && state > 0) return;
+  self.told = state > 0;
   mb_host_outside(2, self.vid, state);
 }
 
@@ -787,6 +790,8 @@ static MBNative *open_web(int32_t vid, NSString *html) {
   NSString *accept = [r valueForHTTPHeaderField:@"Accept"];
   if ([accept hasPrefix:@"text/html"]) page = YES;
   [v say:@{@"req" : @(q.rid), @"method" : r.HTTPMethod ?: @"GET", @"path" : path, @"headers" : hs, @"page" : @(page)}];
+  // the site waits on the app's answer now (apple.h's mb_host_outside, 0)
+  mb_host_outside(2, v.vid, 0);
 }
 
 - (void)webView:(WKWebView *)wv stopURLSchemeTask:(id<WKURLSchemeTask>)task {

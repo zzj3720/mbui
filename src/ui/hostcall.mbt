@@ -386,10 +386,25 @@ fn outside_end(kind : Int, id : Int) -> Unit {
 }
 
 ///|
-/// The host's event: what it did for the app is done (`state`: 1 done, -1 failed).
+/// The native views the host said were ready (or failed): their work is the host's no more, whatever is asked after.
+let views_told : Map[Int, Bool] = Map::new()
+
+///|
+/// The host's event: what it did for the app is done (`state`: 1 done, -1 failed), or (a view, 0) it waits on the
+/// app now: the bytes a player reads, a site's answer. Until the app answers, the host does nothing for it.
 fn on_outside(kind : Int, id : Int, state : Int) -> Unit {
-  ignore(state)
+  if kind == 2 && state != 0 {
+    views_told[id] = true
+  }
   outside_end(kind, id)
+}
+
+///|
+/// The app answered what a view waits on (a read, a site's request): the host's again, until ready or it asks more.
+fn outside_answered(id : Int) -> Unit {
+  if !views_told.contains(id) && !outside_tickets.contains(outside_key(2, id)) {
+    outside_start(2, id, "view \{id} (after the app's answer)")
+  }
 }
 
 ///|
@@ -499,6 +514,7 @@ fn h_view_place(
 ///|
 fn h_view_close(id : Int) -> Unit {
   outside_end(2, id)
+  views_told.remove(id)
   match fake.val {
     Some(f) => f.views.push("close \{id}")
     None => @host.view_close(id)
@@ -582,6 +598,7 @@ fn h_view_site_chunk(id : Int, req : Int, data : Bytes) -> Unit {
 
 ///|
 fn h_view_site_end(id : Int, req : Int, error : String) -> Unit {
+  outside_answered(id)
   match fake.val {
     Some(f) => f.views.push("site end \{id} \{req} \{error}")
     None => @host.view_site_end(id, req, error)
@@ -631,6 +648,7 @@ fn h_view_read_next(id : Int, out : FixedArray[Double]) -> Int {
 
 ///|
 fn h_view_read_answer(id : Int, req : Int, data : Bytes, total : Double) -> Unit {
+  outside_answered(id)
   match fake.val {
     Some(_) => ()
     None => @host.view_read_answer(id, req, data, total)

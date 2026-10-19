@@ -34,6 +34,7 @@ fn reset_globals() -> Unit {
   text_table.val = None
   image_cache.clear()
   outside_tickets.clear()
+  views_told.clear()
   pagers.clear()
   code_fields.clear()
   code_clears.clear()

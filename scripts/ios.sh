@@ -2,7 +2,7 @@
 # The iOS simulator app: built from the C that `moon build --target native` generates (split and compiled in parallel:
 # scripts/mbc.py), plus the MoonBit runtime and the Objective-C host, then installed and launched on a simulator of our
 # own. APP=demo picks the app (src/<APP>).
-#   scripts/ios.sh build | run [SCRIPT] | log [N] | stop | shot NAME | device | delete
+#   scripts/ios.sh build | run [SCRIPT] | log [N] | stop | shot NAME | device | pid | delete
 # ENV="K=V;K2=V2" gives `run` the app's environment variables (simctl's SIMCTL_CHILD_*); its log (stderr: the host's
 # log, the drive's lines, the core's) goes to out/ios/app.log (MBUI_IOS_LOG: another file), stdout beside it (.stdout).
 #
@@ -50,7 +50,36 @@ for rt,ds in d.items():
     id=$(xcrun simctl create "$DEV_NAME" "$dt" "$rt")
   fi
   xcrun simctl boot "$id" 2>/dev/null || true
-  xcrun simctl bootstatus "$id" -b >/dev/null
+  # until it has booted (`simctl bootstatus`, looked at for a few seconds at a time). A fresh simulator's data
+  # migration can hang on the address book's plugin (AddressBookLegacy.migrator, idle, seen on iOS 26.4 on a loaded
+  # Mac for a quarter of an hour, apps launched meanwhile never answering): after a minute of it, that plugin's
+  # wrapper (a process of this simulator's launchd_sim) is ended, and the migration goes on without it.
+  local t0=$(date +%s) ab=0 s pid
+  local st=$(mktemp -t mbui-bootstatus)
+  while :; do
+    xcrun simctl bootstatus "$id" >"$st" 2>&1 &
+    pid=$!
+    sleep 4
+    local ended=1
+    kill $pid 2>/dev/null && ended=0
+    wait $pid 2>/dev/null || true
+    s=$(tail -4 "$st")
+    case "$s" in
+      *isTerminal=YES* | *Finished* | *"already booted"*) break ;;
+      *addressbook.migrator*)
+        ab=$((ab + 1))
+        if [ $ab -ge 12 ]; then
+          local sim=$(pgrep -f "CoreSimulator/Devices/$id/data/var/run/launchd_bootstrap.plist" | head -1)
+          [ -n "$sim" ] && pkill -P "$sim" -f com.apple.migrationpluginwrapper && echo "ios.sh: the address book's migration ended (it hung)" >&2
+          ab=0
+        fi
+        ;;
+    esac
+    # (a bootstatus that ended by itself: the boot is over)
+    [ $ended = 1 ] && break
+    [ $(($(date +%s) - t0)) -gt 900 ] && { rm -f "$st"; echo "ios.sh: $DEV_NAME did not boot: $s" >&2; return 1; }
+  done
+  rm -f "$st"
   echo "$id"
 }
 
@@ -63,6 +92,11 @@ for rt,ds in d.items():
   for x in ds:
     if x['name']=='$DEV_NAME': print(x['udid']); sys.exit()
 "
+}
+
+# the app's pid on simulator $1, when it runs (launchd's UIKitApplication:<bundle id>[…] job)
+app_pid() {
+  xcrun simctl spawn "$1" launchctl list 2>/dev/null | awk -v b="UIKitApplication:$BID[" 'index($3, b) == 1 && $1 != "-" { print $1; exit }'
 }
 
 case "${1:-build}" in
@@ -115,7 +149,21 @@ case "${1:-build}" in
     : > "$LOG.stdout"
     SIMCTL_CHILD_MBUI_SCRIPT=${2:-} SIMCTL_CHILD_MBUI_BENCH=${BENCH:-0} \
       SIMCTL_CHILD_MBUI_SHOT_DIR=${SIMCTL_CHILD_MBUI_SHOT_DIR:-$PWD/$OUT/shots} \
-      xcrun simctl launch --terminate-running-process --stdout="$LOG.stdout" --stderr="$LOG" "$ID" $BID
+      xcrun simctl launch --terminate-running-process --stdout="$LOG.stdout" --stderr="$LOG" "$ID" $BID \
+      >"$LOG.launch" 2>&1 &
+    # the app's process as the simulator's launchd has it: `simctl launch` can sit on for minutes after the app is up
+    # (seen on a loaded Mac), so it is not waited for
+    for _ in $(seq 1 120); do
+      pid=$(app_pid "$ID")
+      [ -n "$pid" ] && break
+      sleep 1
+    done
+    [ -n "$pid" ] || { cat "$LOG.launch" >&2; echo "ios.sh: $BID did not start" >&2; exit 1; }
+    echo "$BID: $pid"
+    ;;
+  pid)
+    # the app's pid (a process of this Mac's), when it runs
+    app_pid "$(device_id)"
     ;;
   log)
     tail -${2:-40} "$LOG"
@@ -131,7 +179,7 @@ case "${1:-build}" in
   shot)
     ID=$(device)
     mkdir -p $OUT/shots
-    xcrun simctl io "$ID" screenshot $OUT/shots/$2.png 2>&1 | tail -2
+    xcrun simctl io "$ID" screenshot "$PWD/$OUT/shots/$2.png" 2>&1 | tail -2
     ;;
   delete)
     ID=$(device_id)

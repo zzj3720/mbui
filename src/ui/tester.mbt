@@ -83,6 +83,7 @@ fn reset_globals() -> Unit {
   words_kept.clear()
   words_sel.clear()
   sideways.clear()
+  list_counts.clear()
   second_ptr[2] = 0.0
   bench.mode = 0
   reset_drawing()

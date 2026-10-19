@@ -44,9 +44,9 @@ An exception is written on the line itself or on the line above it, with its rea
     c.request_frame() // det-ok(frame-request): the bench mode draws every frame on purpose
     # det-ok(script-wait): the emulator's boot has no event to wait for
 
-They are printed with their reasons, and counted (detlint.json's `excused`, by rule and file): in a file, an
-exception may only take the place of a finding there was (found and excused together never above their bar), so
-exceptions cannot grow on their own.
+They are printed with their reasons, and counted (detlint.json's `excused`, by rule and file), and only go down:
+marking a finding det-ok does not make it go away. app-clock alone (SWAPPABLE: a time shown is right) lets an
+exception take the place of a finding there was (found and excused together never above their bar).
 
 What it reads: MoonBit through a lexer of its own (comments, strings with their interpolations, #| lines, chars,
 numbers), a call being NAME ( … ) with what is before it (a receiver `.`, a package `@pkg.`, a type `T::`) and its
@@ -942,13 +942,18 @@ def total(per_file):
     return sum(per_file.values())
 
 
-def over(cur, bar):
+# the rules where an exception may take the place of a finding there was (docs/detlint.md: a time shown is right);
+# elsewhere an exception's count only goes down, apart from the findings'
+SWAPPABLE = {"app-clock"}
+
+
+def over(cur, bar, rule):
     """The files (of one rule) above their bar: (file, found, its bar, found and excused, their bar)."""
     out = []
     for p in sorted(set(cur["found"]) | set(cur["excused"])):
         f, e = cur["found"].get(p, 0), cur["excused"].get(p, 0)
         bf, be = bar["found"].get(p, 0), bar["excused"].get(p, 0)
-        if f > bf or f + e > bf + be:
+        if f > bf or (f + e > bf + be if rule in SWAPPABLE else e > be):
             out.append((p, f, bf, f + e, bf + be))
     return out
 
@@ -993,7 +998,7 @@ def main(argv):
             nf, ne = dict(cur["found"]), dict(cur["excused"])
             if bar["found"] is not None and update != "--update=raise":
                 bar = {"found": bar["found"], "excused": bar["excused"] or {}}
-                for p, f, bf, fe, bfe in over(cur, bar):
+                for p, f, bf, fe, bfe in over(cur, bar, r):
                     print(f"detlint: {r} in {p} is above its bar ({f} found, {fe} with det-ok; the bar {bf}, {bfe}): "
                           f"kept (--update=raise to raise it, and say why)", file=sys.stderr)
                     nf[p], ne[p] = bar["found"].get(p, 0), bar["excused"].get(p, 0)
@@ -1022,13 +1027,14 @@ def main(argv):
             line += f"{total(bar['found']):<5} {total(cur['excused']):4} / {total(bar['excused']):<4}"
             if total(bar["found"]) == 0 and total(bar["excused"]) == 0:
                 line += "  forbidden"
-            for p, f, bf, fe, bfe in over(cur, bar):
+            for p, f, bf, fe, bfe in over(cur, bar, r):
                 bad = True
                 if f > bf:
                     notes.append(f"    {r}: {p}: {f} > {bf}: {RULES[r]}")
                 else:
-                    notes.append(f"    {r}: {p}: {fe - f} det-ok, the bar {bfe - bf}: an exception may only take "
-                                 f"the place of a finding there was")
+                    notes.append(f"    {r}: {p}: {fe - f} det-ok, the bar {bfe - bf}: " + (
+                        "an exception may only take the place of a finding there was" if r in SWAPPABLE else
+                        "this rule's exceptions only go down (a finding marked det-ok is still a finding)"))
                 for fd in findings:
                     if fd.rule == r and fd.file == p:
                         notes.append(f"        {p}:{fd.line}  {fd.what}" + (

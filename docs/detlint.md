@@ -31,9 +31,10 @@ On the line, or the line over it, with the reason:
     # det-ok(script-wait): the emulator's boot has nothing to wait for but its property
 
 Several rules: `det-ok(poll, frame-request): …`. One without a reason is not taken. The report prints every
-exception with its reason. They are counted too: in a file, an exception may only take the place of a finding there
-was (its findings and exceptions together never above their bar there), so marking a finding lowers the findings'
-bar with `--update` and nothing needs raising, while an exception for something new fails as the finding would.
+exception with its reason. They are counted too (`excused`, by rule and file) and only go down, apart from the
+findings: marking a finding `det-ok` does not make it go away (`wait 800  # det-ok(flow-wait): …` fails). The one
+rule where an exception may take the place of a finding there was is `app-clock` (a time shown is right, below):
+there a file's findings and exceptions together stay under their bar, so marking one and running `--update` passes.
 
 ## The rules
 
@@ -48,7 +49,7 @@ bar with `--update` and nothing needs raising, while an exception for something 
 | `literal-time` | a bare number as a time: `run_for`, `wake_in`, `wake_after`, `wake_at`, `advance`, `frames_until`, `frame(ms=)` (`c.now() + 500.0` too; `0` is no time and passes) | a named length: `run_for(toast_life)`, `wake_at(at + hold_ms)` |
 | `stable-mode` | the app reads `Ctx::stable()` (drawn otherwise when screenshotted) | the picture taken at a declared time, of the app as it runs |
 | `retired-api` | `frames_until`, `animating`, `animating_until`, `run_animations`, defined or called, anywhere: given up (an animation is data, declared once with its start and end). Forbidden from the start | motion's declared animations |
-| `app-clock` | the app reads the clock: `.now()`, `@ui.now()`, `@host.now()` (`(c.now() - at) / 180.0`, `at = c.now()`) | motion, `wake_at` from a declared length. Showing a time is right (`3 分钟前`: under a Tester the clock is the test's; its next change a `wake_at`): such a read is marked `det-ok(app-clock): shown as …`, in place of its finding |
+| `app-clock` (an exception may replace a finding) | the app reads the clock: `.now()`, `@ui.now()`, `@host.now()` (`(c.now() - at) / 180.0`, `at = c.now()`) | motion, `wake_at` from a declared length. Showing a time is right (`3 分钟前`: under a Tester the clock is the test's; its next change a `wake_at`): such a read is marked `det-ok(app-clock): shown as …`, in place of its finding |
 | `wall-clock` | `Date.now`, `performance.now`, `Math.random`, `crypto.getRandomValues`… (also inside externs' JS), an unseeded `@random`, `wall_ms()` outside the host / core that provides them | the host's clock through `@ui`, a seed |
 | `poll` | a frame or a wake asked for under a condition (if, while, match, an arm's guard, an else's if) that reads the host (`@host.*`), the layout or a host handle (`list_row_height`, `list_place`, `rect_of`, `made`, `grabbed`, `photos`, `pressed`…), or calls a function of the package that does | the host's answer, the layout's, as an event; a deadline while a finger is down is a deadline and passes |
 | `host-read` | the app calls `@host.now / wake_after / platform / system_dark / window_inset / env` (still.fail #738) | `@ui`'s, which a Tester answers |

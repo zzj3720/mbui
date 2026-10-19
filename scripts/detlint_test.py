@@ -330,7 +330,7 @@ class Exceptions(unittest.TestCase):
                 fh.write("fn w(c : @ui.Ctx) -> Unit {\n  c.request_frame() // det-ok(frame-request): b\n}\n")
             code, out = Bar.run_main(None, t)
             self.assertEqual(code, 1, out)
-            self.assertIn("an exception may only take the place of a finding", out)
+            self.assertIn("exceptions only go down", out)
         finally:
             t.close()
 
@@ -346,6 +346,20 @@ class Exceptions(unittest.TestCase):
             self.assertEqual(Bar.run_main(None, t, "--update")[0], 0)
             code, out = Bar.run_main(None, t)
             self.assertEqual(code, 0, out)
+        finally:
+            t.close()
+
+    def test_marking_a_finding_is_not_a_way_out_but_for_app_clock(self):
+        t = Tree({"flows/01.drive": "tap 发消息\nwait 800\n"})
+        try:
+            Bar.run_main(None, t, "--update")
+            with open(os.path.join(t.root, "flows/01.drive"), "w", encoding="utf-8") as fh:
+                fh.write("tap 发消息\n# det-ok(flow-wait): the list's animation\nwait 800\n")
+            code, out = Bar.run_main(None, t)
+            self.assertEqual(code, 1, out)
+            self.assertIn("exceptions only go down", out)
+            Bar.run_main(None, t, "--update")
+            self.assertEqual(Bar.run_main(None, t)[0], 1, "--update does not take it either")
         finally:
             t.close()
 

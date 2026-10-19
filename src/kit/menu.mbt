@@ -172,12 +172,15 @@ fn menu_panel(
       c.roving(key + "/items", orientation=Vertical, wrap=false, fn() {
         for n, e in entries {
           match e.kind {
+            // a line of the words' colour faintly (in dark the panel is lighter than the page: its line a groove)
             Rule =>
-              c.box(pady=4.0, fn() { c.box(h=Px(1.0), w=Fill(1.0), bg=c.theme().border, fn() {  }) |> ignore })
+              c.box(pady=6.0, padx=4.0, fn() {
+                c.box(h=Px(1.0), w=Fill(1.0), bg=@ui.alpha(c.theme().fg, 0.12), fn() {  }) |> ignore
+              })
               |> ignore
             Heading =>
-              c.box(padx=8.0, pt=6.0, pb=4.0, fn() {
-                c.text(e.label, size=c.theme().font_sm, weight=600, color=c.theme().muted, wrap=false) |> ignore
+              c.box(padx=10.0, pt=6.0, pb=4.0, fn() {
+                c.text(e.label, size=c.theme().font_sm, color=c.theme().muted, wrap=false) |> ignore
               })
               |> ignore
             _ => {
@@ -458,7 +461,7 @@ pub fn menubar(
   let mut chosen = None
   let n = menus.length()
   let tids = menus.mapi(fn(k, _) { part_id(id, k) })
-  let bar = c.box(dir=Row, gap=2.0, pad=2.0, radius=c.theme().radius, bg=c.theme().faint, fn() {
+  let bar = c.box(dir=Row, gap=2.0, fn() {
     c.roving(key, orientation=Horizontal, wrap=true, current=pick(open >= 0, tids[imax(open, 0)], 0), fn() {
       for k, m in menus {
         let tid = tids[k]
@@ -544,72 +547,75 @@ pub fn menubar(
 }
 
 ///|
-/// A menubar's trigger's default look: its words, on the surface when its menu is open, a ground when pointed at.
+/// A menubar's (and a navigation menu's) trigger's default look (still.fail's chooser): quiet small words, 28 high,
+/// the hover's ground and the words' colour when pointed at or open.
 pub fn menubar_trigger_look(c : @ui.Ctx, s : ToggleState) -> Unit {
   let t = c.theme()
-  c.box(
-    h=Px(t.control_h - 8.0),
-    padx=10.0,
-    justify=JCenter,
-    radius=t.radius - 2.0,
-    bg=pick(s.on, t.surface, pick(s.hovered, t.hover, 0L)),
-    fn() {
-      c.text(s.label, size=t.font_sm, weight=500, wrap=false) |> ignore
-      focus_ring(c, s.focus_shown, s.rect, t.radius - 2.0)
-    },
-  )
+  let lit = s.on || s.hovered
+  c.box(h=Px(28.0), padx=8.0, justify=JCenter, radius=8.0, bg=pick(lit, t.hover, 0L), fn() {
+    c.text(s.label, size=t.font, weight=pick(s.on, 500, 400), color=pick(lit, t.fg, t.muted), wrap=false) |> ignore
+    focus_ring(c, s.focus_shown, s.rect, 8.0)
+  })
   |> ignore
 }
 
 ///|
-/// A menu's panel's default look: the theme's surface, a line round it, a shadow, 4 in, at least `min_w` wide.
+/// A menu's panel's default look (still.fail's small panel): the theme's surface, its large corner, 6 in (what has a
+/// ground of its own, a row, stands so far from its edge), a line round it, a shadow; at least `min_w` wide.
 pub fn menu_look(c : @ui.Ctx, min_w : Double, body : () -> Unit) -> Unit {
   let t = c.theme()
   c.box(
     min_w~,
-    pad=4.0,
+    pad=6.0,
     bg=t.surface,
-    radius=t.radius,
+    radius=t.radius_lg,
     border=1.0,
-    border_color=t.border,
-    shadow=24.0,
+    border_color=t.line,
+    shadow=32.0,
     shadow_color=t.shadow,
-    shadow_y=6.0,
+    shadow_y=12.0,
     body,
   )
   |> ignore
 }
 
 ///|
-/// A menu item's default look: a mark's room (✓ for a checked item, • for the chosen of a choice), its words, its
-/// shortcut or a submenu's ›; lit in the accent.
+/// A menu item's default look (still.fail's menu rows): 34 high, its words 10 in, its corner the panel's less the
+/// panel's 6 (one curve with it); lit on the hover's ground; a mark's room before its words (✓ for a checked item, •
+/// for the chosen of a choice), its shortcut or a submenu's › after them; disabled in the subtle grey.
 pub fn menu_item_look(c : @ui.Ctx, s : MenuItemState) -> Unit {
   let t = c.theme()
   let e = s.entry
-  let ink = if s.lit && !e.disabled { t.on_accent } else { t.fg }
-  let quiet = if s.lit && !e.disabled { t.on_accent } else { t.muted }
+  let ink = if e.disabled { t.subtle } else { t.fg }
   let mark = match e.kind {
     Check(true) => "✓"
     Choice(true) => "•"
     _ => ""
   }
+  let marks = match e.kind {
+    Check(_) | Choice(_) => true
+    _ => false
+  }
   c.box(
     dir=Row,
-    h=Px(30.0),
-    padx=8.0,
-    gap=6.0,
+    min_h=34.0,
+    padx=10.0,
+    pady=7.0,
+    gap=8.0,
     align=ACenter,
-    radius=t.radius - 4.0,
-    bg=pick(s.lit && !e.disabled, t.accent, pick(s.open, t.faint, 0L)),
-    opacity=pick(e.disabled, disabled_alpha, 1.0),
+    radius=t.radius_lg - 6.0,
+    bg=pick((s.lit || s.open) && !e.disabled, t.hover, 0L),
     fn() {
-      c.box(w=Px(14.0), fn() { c.text(mark, size=t.font_sm, weight=700, color=ink, wrap=false) |> ignore }) |> ignore
-      c.box(w=Fill(1.0), fn() { c.text(e.label, size=t.font_sm, color=ink, wrap=false) |> ignore }) |> ignore
+      if marks {
+        c.box(w=Px(14.0), align=ACenter, fn() { c.text(mark, size=t.font, weight=600, color=ink, wrap=false) |> ignore })
+        |> ignore
+      }
+      c.box(w=Fill(1.0), fn() { c.text(e.label, size=t.font, color=ink, wrap=false, line=20.0) |> ignore }) |> ignore
       if e.shortcut != "" {
-        c.text(e.shortcut, size=t.font_sm, color=quiet, wrap=false) |> ignore
+        c.text(e.shortcut, size=t.font_sm, color=t.muted, wrap=false) |> ignore
       }
       if e.kind is Sub(_) {
-        c.text(if c.rtl() { "‹" } else { "›" }, size=t.font, color=quiet, wrap=false) |> ignore
+        c.text(if c.rtl() { "‹" } else { "›" }, size=t.font + 2.0, color=t.muted, wrap=false) |> ignore
       }
     },
   )

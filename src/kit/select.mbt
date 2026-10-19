@@ -121,29 +121,29 @@ pub fn select(
 }
 
 ///|
-/// A select's trigger's default look: a field's (the theme's control height, a line round it), its words (muted for
-/// the placeholder) and a chevron.
+/// A select's trigger's default look (still.fail's select, a pill as a one-line field is): a line round it that
+/// darkens pointed at, its words (the subtle grey for the placeholder) and a chevron.
 pub fn select_look(c : @ui.Ctx, s : SelectState) -> Unit {
   let t = c.theme()
   c.box(
     dir=Row,
     w=Fill(1.0),
     h=Px(t.control_h),
-    padx=12.0,
+    padx=16.0,
     gap=8.0,
     align=ACenter,
-    radius=t.radius,
+    radius=t.control_h / 2.0,
     border=1.0,
-    border_color=t.border,
-    bg=tinted(c, t.surface, s.hovered && !s.disabled, false),
-    opacity=pick(s.disabled, disabled_alpha, 1.0),
+    border_color=pick((s.hovered || s.open) && !s.disabled, t.field_hover, t.border),
+    bg=t.bg,
+    opacity=pick(s.disabled, 0.45, 1.0),
     fn() {
       c.box(w=Fill(1.0), fn() {
-        c.text(s.text, size=t.font, color=pick(s.placeholder, t.muted, t.fg), wrap=false) |> ignore
+        c.text(s.text, size=t.font + 1.0, color=pick(s.placeholder, t.subtle, t.fg), wrap=false) |> ignore
       })
       |> ignore
       c.text("⌄", size=t.font, color=t.muted, wrap=false) |> ignore
-      focus_ring(c, s.focus_shown, s.rect, t.radius)
+      focus_ring(c, s.focus_shown, s.rect, t.control_h / 2.0)
     },
   )
   |> ignore
@@ -160,15 +160,20 @@ pub fn toolbar(
   orientation? : @ui.Orientation = Horizontal,
 ) -> Unit {
   let t = c.theme()
-  let i = c.box(
-    dir=pick(orientation == Vertical, Column, Row),
-    gap=4.0,
-    pad=4.0,
-    align=ACenter,
-    bg=t.faint,
-    radius=t.radius,
-    fn() { c.roving(key, orientation~, wrap=true, body) },
-  )
+  let mut i = 0
+  // as wide as what it holds, wherever it stands
+  c.box(dir=Row, fn() {
+    i = c.box(
+      dir=pick(orientation == Vertical, Column, Row),
+      gap=2.0,
+      pad=3.0,
+      align=ACenter,
+      bg=t.faint,
+      radius=t.radius + 3.0,
+      fn() { c.roving(key, orientation~, wrap=true, body) },
+    )
+  })
+  |> ignore
   c.semantics(i, Toolbar, label~)
 }
 

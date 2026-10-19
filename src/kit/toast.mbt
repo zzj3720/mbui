@@ -1,4 +1,4 @@
-// Toasts (Radix's Toast): short messages in a corner of the window that go by themselves, the list of them the
+// Toasts (Radix's Toast): short messages at the bottom of the window that go by themselves, the list of them the
 // view's. Each goes once it has shown `duration` ms; the time stops while the pointer is over them or the focus is in
 // one (so that it can be read and acted on). Each has a close button and may have an action; a swipe to the right
 // (past a third of it, or quick) puts it away. Read out politely as they come (a status). A toast put away comes out
@@ -45,14 +45,14 @@ priv struct Kept {
 }
 
 ///|
-/// `key`'s toasts (see the file's head), `toasts` showing, the newest last, in the window's bottom right corner, `w`
-/// wide; each goes after `duration` ms; named `label` for the semantics tree, and their close buttons `close_label`.
+/// `key`'s toasts (see the file's head), `toasts` showing, the newest last, at the bottom of the window in its
+/// middle, at most `w` wide; each goes after `duration` ms; named `label` for the semantics tree, and their close buttons `close_label`.
 pub fn toaster(
   c : @ui.Ctx,
   key : String,
   toasts : Array[Toast],
   duration? : Double = 5000.0,
-  w? : Double = 356.0,
+  w? : Double = 560.0,
   label? : String = "通知",
   close_label? : String = "关闭",
   look? : (@ui.Ctx, ToastState, () -> Unit) -> Unit = toast_look,
@@ -96,7 +96,15 @@ pub fn toaster(
   let (ww, wh) = c.window_size()
   let width = dmin(w, ww - 32.0)
   c.overlay(key, escape=false, outside=false, initial_focus=0, fn() {
-    let region = c.box(id=rid, w=Px(width), gap=8.0, tx=ww - width - 16.0, ty=wh - height_of(c, rid) - 16.0, fn() {
+    // at the bottom of the window, in its middle (still.fail's)
+    let region = c.box(
+      id=rid,
+      w=Px(width),
+      gap=8.0,
+      align=ACenter,
+      tx=(ww - width) / 2.0,
+      ty=wh - height_of(c, rid) - 24.0,
+      fn() {
       for to in order {
         let k = key + "/" + to.id
         let tid = c.id(k)
@@ -110,7 +118,12 @@ pub fn toaster(
               if d.down && d.moving {
                 dx = dmax(0.0, d.x - d.x0)
               }
-              if d.take_end() && (d.x - d.x0 > width / 3.0 || d.vx > 0.5) {
+              // a third of it (as wide as its words)
+              let tw = match c.rect_of(tid) {
+                Some((_, _, w, _)) if w > 0.0 => w
+                _ => width
+              }
+              if d.take_end() && (d.x - d.x0 > tw / 3.0 || d.vx > 0.5) {
                 away = true
               }
             }
@@ -138,16 +151,11 @@ pub fn toaster(
             if !live {
               return
             }
-            if to.action != "" {
-              c.box(dir=Row, pt=8.0, fn() {
-                if button(c, to.action, key=k + "/action", variant=Outline).clicked {
-                  acted = Some(to.id)
-                  live = false
-                }
-              })
-              |> ignore
+            if to.action != "" && toast_button(c, k + "/action", to.action, to.action, false) {
+              acted = Some(to.id)
+              live = false
             }
-            if close_button(c, k + "/close", close_label) {
+            if toast_button(c, k + "/close", "✕", close_label, true) {
               live = false
             }
           })
@@ -187,34 +195,64 @@ fn focus_in(c : @ui.Ctx, key : String, id : String) -> Bool {
 }
 
 ///|
-/// A toast's default look: the theme's surface, a line round it and a shadow, its title over its description, then
-/// what `actions` builds (its action, its close button); it fades and slides as it comes in, goes out and is swiped.
+/// A toast's default look (still.fail's): the primary ink, a corner of 20, its title over its description (fainter),
+/// then what `actions` builds (its action, its close button) beside them; it fades and rises as it comes in, slides
+/// away as it goes out and is swiped.
 pub fn toast_look(c : @ui.Ctx, s : ToastState, actions : () -> Unit) -> Unit {
   let t = c.theme()
   let k = if s.t > 1.0 { 1.0 } else if s.t < 0.0 { 0.0 } else { s.t }
   c.box(
-    w=Fill(1.0),
-    pad=16.0,
-    pr=44.0,
-    gap=4.0,
-    bg=t.surface,
-    radius=t.radius_lg,
-    border=1.0,
-    border_color=t.border,
-    shadow=20.0,
+    dir=Row,
+    pl=18.0,
+    pr=8.0,
+    pady=9.0,
+    gap=10.0,
+    align=ACenter,
+    bg=t.primary,
+    radius=20.0,
+    max_w=560.0,
+    shadow=24.0,
     shadow_color=t.shadow,
-    shadow_y=4.0,
+    shadow_y=8.0,
     tx=s.dx,
-    ty=(1.0 - k) * 16.0,
+    ty=(1.0 - k) * 12.0,
     opacity=k,
     fn() {
-      c.text(s.toast.title, size=t.font, weight=600) |> ignore
-      if s.toast.description != "" {
-        c.text(s.toast.description, size=t.font_sm, color=t.muted) |> ignore
-      }
-      // its action, and its close button over its corner
+      c.box(gap=2.0, fn() {
+        c.text(s.toast.title, size=t.font, weight=500, color=t.on_primary, line=20.0) |> ignore
+        if s.toast.description != "" {
+          c.text(s.toast.description, size=t.font_sm, color=@ui.alpha(t.on_primary, 0.7), line=18.0) |> ignore
+        }
+      })
+      |> ignore
       actions()
     },
   )
   |> ignore
+}
+
+///|
+/// A button on a toast (its look's): `text` on a faint ground of the ink's words (`round`: a circle, the close
+/// button's), named `label`; whether it was pressed.
+pub fn toast_button(c : @ui.Ctx, key : String, text : String, label : String, round : Bool) -> Bool {
+  let t = c.theme()
+  let id = c.id(key)
+  let r = c.interact(id)
+  let i = c.box(
+    id~,
+    h=Px(28.0),
+    min_w=28.0,
+    padx=if round { 0.0 } else { 12.0 },
+    radius=14.0,
+    align=ACenter,
+    justify=JCenter,
+    bg=@ui.alpha(t.on_primary, if r.pressed { 0.24 } else if r.hovered { 0.18 } else if round { 0.0 } else { 0.12 }),
+    fn() {
+      c.text(text, size=if round { 12.0 } else { t.font }, weight=500, color=@ui.alpha(t.on_primary, if round { 0.7 } else { 1.0 }), wrap=false)
+      |> ignore
+      focus_ring(c, r.focus_shown, r.rect, 14.0)
+    },
+  )
+  c.semantics(i, Button, id~, label~, actions=[Activate])
+  r.clicked
 }

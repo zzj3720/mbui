@@ -193,8 +193,8 @@ fn beside(
 }
 
 ///|
-/// A popover's (and a hover card's) look by its sizes: the theme's surface, its large corner, `pad` in, a line round
-/// it and a shadow.
+/// A popover's (and a hover card's) look by its sizes (still.fail's small panels): the theme's surface, its large
+/// corner, `pad` in (a panel's 6 and a row's 10: its words where a menu's rows put theirs), a line round it, a shadow.
 pub fn popover_look_of(pad? : Double = 16.0, gap? : Double = 8.0) -> (@ui.Ctx, PopState, () -> Unit) -> Unit {
   fn(c, _, body) {
     let t = c.theme()
@@ -204,10 +204,10 @@ pub fn popover_look_of(pad? : Double = 16.0, gap? : Double = 8.0) -> (@ui.Ctx, P
       bg=t.surface,
       radius=t.radius_lg,
       border=1.0,
-      border_color=t.border,
-      shadow=24.0,
+      border_color=t.line,
+      shadow=32.0,
       shadow_color=t.shadow,
-      shadow_y=6.0,
+      shadow_y=12.0,
       body,
     )
     |> ignore
@@ -219,11 +219,11 @@ pub fn popover_look_of(pad? : Double = 16.0, gap? : Double = 8.0) -> (@ui.Ctx, P
 pub let popover_look : (@ui.Ctx, PopState, () -> Unit) -> Unit = popover_look_of()
 
 ///|
-/// A tooltip's default look: small words on the theme's words' colour (the page's ground's on it), a small corner.
+/// A tooltip's default look (still.fail's): small words on the primary ink, a corner of 8, a soft shadow.
 pub fn tooltip_look(c : @ui.Ctx, _s : PopState, text : String) -> Unit {
   let t = c.theme()
-  c.box(padx=10.0, pady=6.0, bg=t.fg, radius=6.0, max_w=280.0, fn() {
-    c.text(text, size=t.font_sm, color=t.bg) |> ignore
+  c.box(padx=10.0, pady=5.0, bg=t.primary, radius=8.0, max_w=300.0, shadow=12.0, shadow_color=t.shadow, shadow_y=4.0, fn() {
+    c.text(text, size=t.font_sm, color=t.on_primary, line=t.font_sm * 1.4) |> ignore
   })
   |> ignore
 }

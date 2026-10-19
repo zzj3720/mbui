@@ -33,7 +33,7 @@ pub fn dialog(
   open : Bool,
   title : String,
   description? : String = "",
-  w? : Double = 420.0,
+  w? : Double = 520.0,
   modal? : Bool = true,
   close_label? : String = "关闭",
   look? : (@ui.Ctx, DialogState, () -> Unit) -> Unit = dialog_look,
@@ -47,7 +47,7 @@ pub fn dialog(
       centered(c, key, p.t, Dialog, title, description, modal, fn() {
         look(c, st, fn() {
           body()
-          if close_label != "" && close_button(c, key + "/close", close_label) {
+          if close_label != "" && close_button(c, key + "/close", close_label, inset=25.0, size=32.0) {
             now = false
           }
         })
@@ -73,7 +73,7 @@ pub fn alert_dialog(
   description? : String = "",
   cancel? : String = "取消",
   danger? : Bool = false,
-  w? : Double = 380.0,
+  w? : Double = 420.0,
   look? : (@ui.Ctx, DialogState, () -> Unit) -> Unit = dialog_look,
   body? : () -> Unit = fn() {  },
 ) -> Alert {
@@ -94,7 +94,7 @@ pub fn alert_dialog(
         centered(c, key, p.t, AlertDialog, title, description, true, fn() {
           look(c, st, fn() {
             body()
-            c.box(dir=Row, gap=8.0, justify=JEnd, pt=8.0, fn() {
+            c.box(dir=Row, gap=8.0, justify=JEnd, fn() {
               if button(c, cancel, key=key + "/cancel", variant=Outline).clicked {
                 now = false
               }
@@ -152,25 +152,34 @@ fn centered(
 }
 
 ///|
-/// A close button over the top right corner of what it is built in (a dialog's panel, a toast): ✕, named `label`;
+/// A close button over the top right corner of what it is built in (a dialog's panel, a toast), `inset` in from its
+/// edges: ✕ in a circle `size` across, in `ink` (the theme's muted; the words' colour pointed at), named `label`;
 /// whether it was pressed.
-pub fn close_button(c : @ui.Ctx, key : String, label : String) -> Bool {
+pub fn close_button(
+  c : @ui.Ctx,
+  key : String,
+  label : String,
+  inset? : Double = 12.0,
+  size? : Double = 28.0,
+  ink? : Int64,
+) -> Bool {
   let t = c.theme()
   let id = c.id(key)
   let r = c.interact(id)
-  // over the panel, in its top right corner
-  c.layer(pad=12.0, align=AEnd, fn() {
+  let quiet = ink.unwrap_or(t.muted)
+  let lit = ink.unwrap_or(t.fg)
+  c.layer(pad=inset, align=AEnd, fn() {
     let i = c.box(
       id~,
-      w=Px(28.0),
-      h=Px(28.0),
-      radius=14.0,
-      bg=pick(r.pressed, doubled(t.hover), pick(r.hovered, t.hover, 0L)),
+      w=Px(size),
+      h=Px(size),
+      radius=size / 2.0,
+      bg=pick(r.pressed, @ui.alpha(lit, 0.12), pick(r.hovered, @ui.alpha(lit, 0.07), 0L)),
       align=ACenter,
       justify=JCenter,
       fn() {
-        c.text("✕", size=14.0, color=t.muted, wrap=false) |> ignore
-        focus_ring(c, r.focus_shown, r.rect, 14.0)
+        c.text("✕", size=size * 0.45, color=pick(r.hovered, lit, quiet), wrap=false) |> ignore
+        focus_ring(c, r.focus_shown, r.rect, size / 2.0)
       },
     )
     c.semantics(i, Button, id~, label~, actions=[Activate])
@@ -188,31 +197,34 @@ fn faded(colour : Int64, t : Double) -> Int64 {
 }
 
 ///|
-/// A dialog's look by its sizes: the theme's surface, its large corner, `pad` in, a shadow; its title (`title_size`,
-/// bold) over its description (muted), then what it holds.
-pub fn dialog_look_of(
-  pad? : Double = 24.0,
-  title_size? : Double = 18.0,
-  gap? : Double = 8.0,
-) -> (@ui.Ctx, DialogState, () -> Unit) -> Unit {
+/// A dialog's look by its sizes (still.fail's): the theme's surface, the dialog's corner, `pad` in, a deep shadow;
+/// its title (the heading's size, 600) over its description (muted), then what it holds, `gap` apart.
+pub fn dialog_look_of(pad? : Double = 24.0, gap? : Double = 16.0) -> (@ui.Ctx, DialogState, () -> Unit) -> Unit {
   fn(c, s, body) {
     let t = c.theme()
     c.box(
       w=Px(s.w),
       pad~,
+      pt=pad + 1.0,
       gap~,
       bg=t.surface,
-      radius=t.radius_lg,
+      radius=t.radius_dialog,
       border=pick(t.dark, 1.0, 0.0),
-      border_color=t.border,
-      shadow=32.0,
+      border_color=t.line,
+      shadow=64.0,
       shadow_color=t.shadow,
-      shadow_y=8.0,
+      shadow_y=24.0,
       fn() {
-        c.box(pr=pick(s.closes, 32.0, 0.0), fn() { c.text(s.title, size=title_size, weight=600) |> ignore }) |> ignore
-        if s.description != "" {
-          c.text(s.description, size=t.font_sm, color=t.muted) |> ignore
-        }
+        c.box(gap=6.0, pr=pick(s.closes, 40.0, 0.0), fn() {
+          c.box(min_h=32.0, justify=JCenter, fn() {
+            c.text(s.title, size=t.font_heading, weight=600, line=30.0) |> ignore
+          })
+          |> ignore
+          if s.description != "" {
+            c.text(s.description, size=t.font, color=t.muted, line=20.0) |> ignore
+          }
+        })
+        |> ignore
         body()
       },
     )
@@ -221,5 +233,5 @@ pub fn dialog_look_of(
 }
 
 ///|
-/// The default look: 24 in, an 18 bold title.
+/// The default look: 24 in, the theme's heading.
 pub let dialog_look : (@ui.Ctx, DialogState, () -> Unit) -> Unit = dialog_look_of()

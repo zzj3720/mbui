@@ -19,7 +19,7 @@ let toasts : Array[Array[@kit.Toast]] = [[], []]
 let toasts_made : Ref[Int] = Ref(0)
 
 ///|
-/// MBUI_OPEN (dialog, alert, popover, toast: one of them) opens it in the light half as the page first shows, for a
+/// MBUI_OPEN (dialog, alert, popover, toast, menu: one of them) opens it in the light half as the page first shows, for a
 /// screenshot of it in place.
 let opened_env : Ref[Bool] = Ref(false)
 
@@ -104,8 +104,8 @@ fn overlays(c : @ui.Ctx) -> Unit {
       c,
       { toast: @kit.toast("g", "Sent", description="To the team, 2 minutes ago", action="Undo"), t: shown, dx: 0.0, hovered: false },
       fn() {
-        c.box(dir=Row, pt=8.0, fn() { @kit.button(c, "Undo", key="g-undo", variant=Outline) |> ignore }) |> ignore
-        @kit.close_button(c, "g-toast-close", "关闭") |> ignore
+        @kit.toast_button(c, "g-undo", "Undo", "Undo", false) |> ignore
+        @kit.toast_button(c, "g-toast-close", "✕", "关闭", true) |> ignore
       },
     )
   })
@@ -128,7 +128,7 @@ fn overlays(c : @ui.Ctx) -> Unit {
         toasts[h] = toasts[h] + [@kit.toast("t\{toasts_made.val}", "Saved", description="Toast \{toasts_made.val}")]
       }
       dialog_open[h] = @kit.dialog(c, "dialog", dialog_open[h], "Edit profile", description="How others see you.", fn() {
-          c.editor("name", placeholder="Name") |> ignore
+          @kit.text_field(c, "name", placeholder="Name") |> ignore
         }).value
       alert_open[h] = @kit.alert_dialog(
           c,

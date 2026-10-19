@@ -1,0 +1,97 @@
+# A measurement, not CI (core-engine-pc.md, branch engine-probe only): on Windows x64, whether React Native 0.81.4's
+# Hermes (its tag in facebook/hermes) builds with MSVC, whether still.fail's Rust shell (client/shell) builds for
+# x86_64-pc-windows-msvc, and the core's real work in that Hermes (bytecode, the shell under it) against Node 24.21 (V8),
+# alternating: cold start, the first view of a big dataset, pure-JS cases (probe/engine/micro.ts).
+name: engine-probe
+on:
+  push:
+    branches: [engine-probe]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+      - name: Machine and tools
+        run: |
+          echo "logical processors: $NUMBER_OF_PROCESSORS"
+          powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors | Format-List; (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB"
+          cl 2>&1 | head -1; cargo --version; rustc -vV | grep host; cmake --version | head -1; ninja --version; python --version; node -v
+      - name: Sources
+        run: |
+          git clone -q --depth 1 https://github.com/AFK-surf/still.fail ember
+          git -C ember log -1 --format='still.fail %H %cs'
+          git clone -q --depth 1 --branch hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782 https://github.com/facebook/hermes hermes
+          git -C hermes log -1 --format='hermes %H %cs'
+          mkdir -p ember/client/core-ts/bench/engine && cp probe/engine/* ember/client/core-ts/bench/engine/
+      - name: Shell for x86_64-pc-windows-msvc, as it is on main
+        continue-on-error: true
+        run: |
+          cd ember/client
+          start=$(date +%s)
+          set +e
+          cargo build --release --locked -p stillfail-shell > ../../shell-asis.log 2>&1
+          status=$?
+          grep -E '^error|^ *--> ' ../../shell-asis.log | head -30
+          echo "status $status in $(( $(date +%s) - start )) s"
+          exit $status
+      - name: Shell with the time zone offset for Windows (probe/engine/win-shell-patch.py)
+        run: |
+          cd ember/client
+          python core-ts/bench/engine/win-shell-patch.py shell/src/lib.rs
+          start=$(date +%s)
+          cargo build --release --locked -p stillfail-shell 2>&1 | grep -E '^error|^ *--> |Finished' | head -30
+          echo "built in $(( $(date +%s) - start )) s"
+          ls -l target/release/stillfail_shell.*
+      - name: Hermes (RN 0.81.4's), MSVC + Ninja, with the engine host linked to it and to the shell
+        run: |
+          mkdir -p hermes/stillfail-host
+          cp probe/engine/host-portable.cpp hermes/stillfail-host/main.cpp
+          lib=$(cygpath -m "$PWD/ember/client/target/release/stillfail_shell.dll.lib")
+          printf 'add_executable(hermes-host main.cpp)\ntarget_link_libraries(hermes-host libhermes "%s" bcrypt psapi)\n' "$lib" > hermes/stillfail-host/CMakeLists.txt
+          echo 'add_subdirectory(stillfail-host)' >> hermes/CMakeLists.txt
+          start=$(date +%s)
+          cmake -S hermes -B hb -G Ninja -DCMAKE_BUILD_TYPE=Release -DHERMES_ENABLE_DEBUGGER=OFF -DHERMES_ENABLE_TEST_SUITE=OFF 2>&1 | tail -4
+          cmake --build hb --target hermes-host hermesc libhermes 2>&1 | grep -E 'error|FAILED|warning C4' | head -30 || true
+          echo "Hermes built in $(( $(date +%s) - start )) s"
+          find hb -name 'hermes-host.exe' -o -name 'hermesc.exe' -o -name 'hermes.lib' -o -name 'hermes.dll' | xargs ls -l
+      - name: Bundles and the dataset
+        run: |
+          npm i -g pnpm@10.33.0 > /dev/null
+          W=$(cygpath -m "$GITHUB_WORKSPACE/ew")
+          mkdir -p "$W/out"
+          cp "$(find hb -name hermes-host.exe | head -1)" "$W/hermes-host.exe"
+          cp ember/client/target/release/stillfail_shell.dll "$W/"
+          export HERMESC=$(cygpath -m "$PWD/$(find hb -name hermesc.exe | head -1)")
+          cd ember/client/core-ts
+          pnpm install --frozen-lockfile > /dev/null
+          node scripts/hermes-bundle.ts "$W/out/core-hermes.js" "$W/out/core.hbc"
+          node bench/engine/hbundle.mjs bench/engine/micro-hermes.ts "$W/out/micro-hermes.js" "$W/out/micro.hbc"
+          node_modules/.bin/esbuild src/hosts/node.ts --bundle --platform=node --format=cjs --target=node22 --outfile="$W/out/core-node.cjs" --external:electron --external:bufferutil --external:utf-8-validate --log-level=error
+          node_modules/.bin/esbuild bench/engine/micro-node.ts --bundle --platform=node --format=esm --target=node22 --outfile="$W/out/micro-node.mjs" --log-level=error
+          cp bench/engine/drive-*.js bench/engine/micro-drive.js bench/engine/node-drive.cjs "$W/out/"
+          node --expose-gc bench/first-view.ts seed "$W/data-seed"
+          node --expose-gc bench/first-view.ts run "$W/data-seed"
+          ls -l "$W" "$W/out"
+      - name: Hermes vs Node, alternating, 5 rounds
+        run: |
+          W=$(cygpath -m "$GITHUB_WORKSPACE/ew")
+          cd ember/client/core-ts/bench/engine
+          PYTHONIOENCODING=utf-8 HOSTWIRE=1 python run.py "$W" 5 cold first micro | tee "$GITHUB_WORKSPACE/run-win.jsonl"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engine-probe
+          path: |
+            run-win.jsonl
+            shell-asis.log

@@ -27,6 +27,8 @@ jobs:
           echo "logical processors: $NUMBER_OF_PROCESSORS"
           powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors | Format-List; (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB"
           cl 2>&1 | head -1; cargo --version; rustc -vV | grep host; cmake --version | head -1; ninja --version; python --version; node -v
+          # Git Bash's /usr/bin/link shadows MSVC's link.exe for cargo: name MSVC's.
+          echo "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$(cygpath -m "$(dirname "$(which cl)")/link.exe")" >> "$GITHUB_ENV"
       - name: Sources
         run: |
           git clone -q --depth 1 https://github.com/AFK-surf/still.fail ember

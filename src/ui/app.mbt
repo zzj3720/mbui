@@ -602,6 +602,7 @@ fn on_back(kind : Int, x : Double, _progress : Double, edge : Int) -> Unit {
 fn on_wheel(x : Double, y : Double, dx : Double, dy : Double, phase : Int) -> Unit {
   let c = g
   let mut target = hit_in(c.scroll_ids, c.scroll_rects, x, y)
+  println("WHEEL target=\{target} sideways=\{sideways.contains(target)} list=\{c.lists.contains(target)} capture=\{captures.contains(target)} drags=\{drags.contains(target)} pager=\{pagers.contains(target)} outer=\{outer_scroll(c, x, y)}")
   // over what scrolls sideways: its sideways part moves it, the rest goes to the list it lies in
   if sideways.contains(target) {
     if sideways_wheel(target, dx, dy) {

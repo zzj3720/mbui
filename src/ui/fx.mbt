@@ -66,7 +66,7 @@ fn fx_frame_end(c : Ctx) -> Unit {
   }
   let rt = fx.val
   if rt.wants_frame() {
-    c.wants_frame = true
+    c.request_frame()
   }
   // (whether what is shown waits for it is the runtime's to say: Ctx::settled asks it)
   match rt.next_timer() {

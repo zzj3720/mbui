@@ -707,7 +707,7 @@ pub fn Ctx::spring(
       s.x = s.target
       s.v = 0.0
     } else {
-      self.wants_frame = true
+      self.request_frame()
     }
   }
   s.x

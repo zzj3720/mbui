@@ -312,7 +312,7 @@ fn press(x : Double, y : Double, up : Bool) -> Unit {
 /// ends the frame's turn, so the app sees it before the next.
 fn drive_frame(c : Ctx) -> Unit {
   guard driver.val is Some(d) else { return }
-  c.wants_frame = true
+  c.request_frame()
   let now = h_now()
   if d.release_at >= 0.0 {
     if now < d.release_at {

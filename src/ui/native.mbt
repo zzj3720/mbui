@@ -520,7 +520,7 @@ fn Ctx::sync_views(self : Ctx) -> Unit {
     v.state = h_view_info(v.id, v.info)
     if v.state != before || v.playing() {
       // a player playing moves on its own: its time is shown
-      self.wants_frame = true
+      self.request_frame()
     }
     match v.serve {
       Some(serve) => v.take_site(serve)
@@ -655,7 +655,7 @@ fn NativeView::take_site(self : NativeView, serve : (SiteRequest, SiteReply) -> 
           _ => ()
         }
         if was != (v.path, v.can_back, v.can_forward, v.loading, v.title) {
-          g().wants_frame = true
+          g().request_frame()
         }
       }
       _ => ()

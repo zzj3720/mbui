@@ -24,7 +24,7 @@ concurrency:
 jobs:
   apk:
     if: github.repository == 'zzj3720/mbui' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: [self-hosted, mbui-mini1]
+    runs-on: mbui-mini1  # (its only label: never a job that asks for any self-hosted runner)
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}

@@ -60,8 +60,13 @@ android {
 }
 
 // The beta app's own package (an applicationId per build type is not something buildTypes can say; a suffix is).
+// Its native libraries compressed in the APK (27 MB stored, as minSdk 29 has them by default, against 12 MB): a
+// download, every build, for phones; installed, they are unpacked once.
 androidComponents {
-    onVariants(selector().withBuildType("release")) { it.applicationId.set("fail.still.mbui") }
+    onVariants(selector().withBuildType("release")) {
+        it.applicationId.set("fail.still.mbui")
+        it.packaging.jniLibs.useLegacyPackaging.set(true)
+    }
 }
 
 // Native views over the canvas (NativeViews.java): the video player is Media3's ExoPlayer, as still.fail's Android

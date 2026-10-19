@@ -147,44 +147,42 @@ build() {
   summary "- $(grep '^core.hbc ' out/android/beta-build.log | head -1); build in $(secs $t0) s"
 }
 
-# The release `beta`: its tag moved to this commit; the APK, then latest.json (still.fail's AppRelease, as its
+# The release `beta`: its tag moved to this commit; the APK and latest.json (still.fail's AppRelease, as its
 # /releases/android/latest.json: versionCode, versionName, file (beside latest.json: mbui-beta.apk), sha256, size,
-# news: the subjects of the commits since the previous beta, newest first) each uploaded under a name of its own then
-# given its stable name, the old one deleted just before (missing for that moment only; latest.json last, so it
-# never names an APK that is not there yet); the notes saying what it is.
-put() {  # put FILE NAME TYPE
-  local up old tmp="next-$MBUI_VERSION_CODE-$2"
-  up=$(curl -sSf --retry 2 -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: $3" --data-binary @$1 \
-    "https://uploads.github.com/repos/$REPO/releases/$rel/assets?name=$tmp" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
-  old=$(gh api repos/$REPO/releases/$rel/assets --paginate --jq ".[] | select(.name == \"$2\") | .id")
-  [ -z "$old" ] || gh api -X DELETE repos/$REPO/releases/assets/$old
-  gh api -X PATCH repos/$REPO/releases/assets/$up -f name=$2 -f label="$2 · $MBUI_VERSION_NAME" >/dev/null
+# news: the subjects of the commits since the previous beta, newest first) uploaded at once under names of their own,
+# then given their stable names, the old ones deleted just before (missing for that moment only; latest.json renamed
+# last, so that it never names an APK not there yet); the notes saying what it is. What does not wait on another
+# goes at once (GitHub's API is ~0.5 s a call from Mini1).
+api() { gh api "$@"; }
+upload() {  # upload FILE NAME TYPE: the asset's id
+  curl -sSf --retry 2 -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: $3" --data-binary @$1 \
+    "https://uploads.github.com/repos/$REPO/releases/$rel/assets?name=$2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])'
 }
 
 publish() {
-  local t0=$(now) rel prev n sum size cert subject news tu upload out
+  local t0=$(now) rel prev sum size cert subject news tu upload out apk_id json_id
   [ -f $APK ] || { echo "beta: no APK (scripts/beta.sh build)" >&2; exit 1; }
+  out=$(mktemp -d ${RUNNER_TEMP:-/tmp}/beta-pub.XXXXXX)
+  # the release (made the first time) and its assets; the previous beta's commit (its tag, before it moves)
+  { api repos/$REPO/releases/tags/beta > $out/rel.json 2>/dev/null || rm -f $out/rel.json; } &
+  prev=$(api repos/$REPO/git/refs/tags/beta --jq .object.sha 2>/dev/null || true)
+  # what came since (this checkout is one commit deep: GitHub's compare), meanwhile the APK's sums
+  if [ -n "$prev" ] && [ "$prev" != "$SHA" ]; then
+    { api "repos/$REPO/compare/$prev...$SHA" --jq '.commits[].commit.message | split("\n")[0]' > $out/news 2>/dev/null || true; } &
+  fi
   sum=$(shasum -a 256 $APK | cut -d' ' -f1)
   size=$(wc -c < $APK | tr -d ' ')
   cert=$($BT/apksigner verify --print-certs $APK | grep 'certificate SHA-256 digest' | head -1 | sed 's/.*: //')
   subject=$(git log -1 --format=%s $SHA)
-  # what came since the previous beta (its tag, before it moves; this checkout is one commit deep: GitHub's compare)
-  prev=$(gh api repos/$REPO/git/refs/tags/beta --jq .object.sha 2>/dev/null || true)
-  news=
-  if [ -n "$prev" ] && [ "$prev" != "$SHA" ]; then
-    news=$(gh api "repos/$REPO/compare/$prev...$SHA" --jq '.commits[].commit.message | split("\n")[0]' 2>/dev/null || true)
-  fi
+  wait
+  news=$(cat $out/news 2>/dev/null || true)
   [ -n "$news" ] || news=$subject
-  out=$(mktemp -d ${RUNNER_TEMP:-/tmp}/beta-pub.XXXXXX)
   printf '%s\n' "$news" | { grep -v '^Merge ' || true; } | python3 -c '
 import json, sys
 news = [l.rstrip("\n") for l in sys.stdin if l.strip()][::-1][:30]
 code, name, sha, size, out = sys.argv[1:6]
 json.dump({"versionCode": int(code), "versionName": name, "file": "mbui-beta.apk", "sha256": sha, "size": int(size),
            "news": news}, open(out, "w"), ensure_ascii=False)' $MBUI_VERSION_CODE $MBUI_VERSION_NAME $sum $size $out/latest.json
-  gh api -X PATCH repos/$REPO/git/refs/tags/beta -f sha=$SHA -F force=true >/dev/null 2>&1 \
-    || gh api -X POST repos/$REPO/git/refs -f ref=refs/tags/beta -f sha=$SHA >/dev/null
-  n=$out/notes.md
   {
     echo "The mbui build of still.fail's Android app, as a test app of its own: **still.fail mbui** (\`fail.still.mbui\`), beside still.fail's apps. Rebuilt on every push to main ([beta.yml](https://github.com/$REPO/blob/main/.github/workflows/beta.yml))."
     echo
@@ -200,22 +198,35 @@ json.dump({"versionCode": int(code), "versionName": name, "file": "mbui-beta.apk
     echo
     echo "Since the previous beta${prev:+ (\`${prev:0:9}\`)}:"
     python3 -c 'import json,sys; print("\n".join("- " + l for l in json.load(open(sys.argv[1]))["news"]))' $out/latest.json
-  } > $n
-  if ! gh release view beta -R $REPO >/dev/null 2>&1; then
-    gh release create beta -R $REPO --prerelease --verify-tag --title "beta" --notes-file $n >/dev/null
+  } > $out/notes.md
+  # the tag at this commit (made the first time)
+  { api -X PATCH repos/$REPO/git/refs/tags/beta -f sha=$SHA -F force=true >/dev/null 2>&1 \
+      || api -X POST repos/$REPO/git/refs -f ref=refs/tags/beta -f sha=$SHA >/dev/null; } &
+  if [ ! -s $out/rel.json ]; then
+    wait
+    gh release create beta -R $REPO --prerelease --verify-tag --title "beta" --notes-file $out/notes.md >/dev/null
+    api repos/$REPO/releases/tags/beta > $out/rel.json
   fi
-  rel=$(gh api repos/$REPO/releases/tags/beta --jq .id)
+  rel=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' $out/rel.json)
+  # the release's assets named $1 (a prefix with *: next-*)
+  asset() { python3 -c 'import json,sys,fnmatch; [print(a["id"]) for a in json.load(open(sys.argv[1]))["assets"] if fnmatch.fnmatchcase(a["name"], sys.argv[2])]' $out/rel.json "$1"; }
   # leftovers of a run that stopped half way
-  for a in $(gh api repos/$REPO/releases/$rel/assets --paginate --jq '.[] | select(.name | startswith("next-")) | .id'); do
-    gh api -X DELETE repos/$REPO/releases/assets/$a
-  done
+  for a in $(asset 'next-*'); do api -X DELETE repos/$REPO/releases/assets/$a & done
   tu=$(now)
-  put $APK mbui-beta.apk application/vnd.android.package-archive
+  upload $out/latest.json next-$MBUI_VERSION_CODE-latest.json application/json > $out/json.id &
+  apk_id=$(upload $APK next-$MBUI_VERSION_CODE-mbui-beta.apk application/vnd.android.package-archive)
   upload=$(secs $tu)
-  put $out/latest.json latest.json application/json
-  gh release edit beta -R $REPO --prerelease --title "beta: $MBUI_VERSION_NAME" --notes-file $n >/dev/null
+  wait
+  json_id=$(cat $out/json.id)
+  [ -n "$apk_id" ] && [ -n "$json_id" ] || { echo "beta: an upload failed" >&2; exit 1; }
+  for a in $(asset mbui-beta.apk) $(asset latest.json); do api -X DELETE repos/$REPO/releases/assets/$a & done
+  wait
+  api -X PATCH repos/$REPO/releases/assets/$apk_id -f name=mbui-beta.apk -f label="mbui-beta.apk · $MBUI_VERSION_NAME" >/dev/null
+  api -X PATCH repos/$REPO/releases/assets/$json_id -f name=latest.json -f label="latest.json · $MBUI_VERSION_NAME" >/dev/null
+  local done_=$(secs $t0)
+  gh release edit beta -R $REPO --prerelease --title "beta: $MBUI_VERSION_NAME" --notes-file $out/notes.md >/dev/null
   rm -rf $out
-  summary "- published https://github.com/$REPO/releases/download/beta/mbui-beta.apk and latest.json (the APK's upload $upload s, publish in $(secs $t0) s)"
+  summary "- published https://github.com/$REPO/releases/download/beta/mbui-beta.apk and latest.json: the APK's upload $upload s, both there $done_ s, the notes after $(secs $t0) s"
 }
 
 case "${1:-}" in

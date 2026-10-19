@@ -161,15 +161,17 @@ fn blank_pager(key : String, index : Array[Int]) -> @ui.Tester {
 
 ///|
 test "a turned page slides by the clock: where it is at 120 ms is the same in one frame or in seven" {
+  // a moment mid-slide (the slide is at rest in about 200 ms)
+  let mid_slide = 120.0
   let a = [0]
   let one = blank_pager("one", a)
   one.tap(280.0, 250.0)
-  one.frame(ms=120.0)
+  one.frame(ms=mid_slide)
   let at_once = one.dump()
   let b = [0]
   let seven = blank_pager("seven", b)
   seven.tap(280.0, 250.0)
-  seven.run_for(120.0)
+  seven.run_for(mid_slide)
   assert_eq(seven.dump(), at_once)
   // on its way still, then at rest, and no frame after
   assert_true(at_once.contains("item=1") && !at_once.contains("col 0,0 300x500 item=1"))

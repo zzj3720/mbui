@@ -25,7 +25,9 @@ test "a spring's frames are drawn until its end, then none; retargeted, it goes 
   t.draw()
   let e = g().motion_end()
   assert_true(e > t.time())
-  t.run_for(50.0)
+  // a moment mid-way
+  let mid_way = 50.0
+  t.run_for(mid_way)
   let mid = seen.val
   assert_true(mid > 0.0 && mid < 100.0)
   // a new target mid-way: from where it is, not from rest

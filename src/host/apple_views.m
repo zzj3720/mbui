@@ -497,8 +497,11 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   dispatch_async(dispatch_get_main_queue(), ^{
     if (self.closed) return;
     [self logState];
-    // a video is ready for the app once its first frame can be shown (or it failed)
-    if (self.playerLayer.readyForDisplay) [self tell:1];
+    // a player is ready for the app once its first frame can be shown (a video), or once it can play at all with
+    // no picture to show (a sound: its presentation size 0 × 0); or it failed
+    BOOL can = self.item.status == AVPlayerItemStatusReadyToPlay;
+    CGSize ps = self.item.presentationSize;
+    if (self.playerLayer.readyForDisplay || (can && ps.width == 0 && ps.height == 0)) [self tell:1];
     else if (self.failed) [self tell:-1];
     mb_host_request_frame();
   });

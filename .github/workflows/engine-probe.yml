@@ -90,8 +90,9 @@ jobs:
           export HERMESC=$(cygpath -m "$PWD/$(find hb -name hermesc.exe | head -1)")
           cd ember/client/core-ts
           pnpm install --frozen-lockfile > /dev/null
-          # (--entry: the script's default entry is a URL pathname, /D:/..., on Windows)
-          node scripts/hermes-bundle.ts --entry src/hosts/hermes.ts "$W/out/core-hermes.js" "$W/out/core.hbc"
+          # (scripts/hermes-bundle.ts takes paths from URL pathnames, /D:/..., which fail on Windows: the same steps
+          # without its not-carried check)
+          node bench/engine/hbundle.mjs src/hosts/hermes.ts "$W/out/core-hermes.js" "$W/out/core.hbc"
           node bench/engine/hbundle.mjs bench/engine/micro-hermes.ts "$W/out/micro-hermes.js" "$W/out/micro.hbc"
           node_modules/.bin/esbuild src/hosts/node.ts --bundle --platform=node --format=cjs --target=node22 --outfile="$W/out/core-node.cjs" --external:electron --external:bufferutil --external:utf-8-validate --log-level=error
           node_modules/.bin/esbuild bench/engine/micro-node.ts --bundle --platform=node --format=esm --target=node22 --outfile="$W/out/micro-node.mjs" --log-level=error

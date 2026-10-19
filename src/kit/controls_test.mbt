@@ -128,6 +128,39 @@ test "toggle group that slides: its thumb behind the pressed item, getting there
 }
 
 ///|
+test "a sliding group coming in past the window's edge: its thumb whole from the first, nothing to grow on after" {
+  // (a page sliding in: the group's last item cut at the window's edge at first)
+  let x = Ref(250.0)
+  let t = @ui.Tester::new(
+    fn(c) {
+      c.box(tx=x.val, fn() {
+        toggle_group(
+          c,
+          "seg",
+          [item("l", label="Left"), item("m", label="Middle"), item("r", label="Right")],
+          ["r"],
+          slide=true,
+          thumb=fn(c, w, h) { c.box(w=Px(w), h=Px(h), bg=0x123456FFL, fn() {  }) |> ignore },
+          label="Seg",
+        )
+        |> ignore
+      })
+      |> ignore
+    },
+    w=300.0,
+    h=200.0,
+  )
+  t.draw()
+  x.val = 0.0
+  t.draw()
+  let (rx, _, rw, _) = t.rect_of("Right").unwrap()
+  let thumb = t.drawn_rects().filter(fn(r) { r.4 == 0x123456FFL })
+  assert_eq(thumb.length(), 1)
+  assert_true(thumb[0].0 <= rx && rx + rw <= thumb[0].0 + thumb[0].2)
+  t.assert_idle()
+}
+
+///|
 test "slider: the arrows a step, Page keys ten, Home and End the ends; Increment and Decrement; held in range" {
   let v = Ref(50.0)
   let t = @ui.Tester::new(fn(c) {

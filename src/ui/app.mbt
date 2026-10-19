@@ -175,6 +175,8 @@ fn frame_body(c : Ctx, w : Double, h : Double, scale : Double, t : Double) -> Do
   let t1 = h_now()
   // lists build their rows while laid out, and those see clicks too
   c.layout(root, 0.0, 0.0, w, h) |> ignore
+  // what covers an item, over it as laid out now (cover.mbt)
+  c.covers_after_layout()
   // how things are drawn this frame, from where they are laid out (draw.mbt: the motion package's looks)
   c.drawing_after_layout()
   // what words marked as selectable hold, as laid out (words.mbt)

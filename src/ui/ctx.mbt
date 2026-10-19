@@ -162,6 +162,9 @@ pub struct Ctx {
   /// the motions said and their ends (motion_data.mbt), and whether a cycle was read this frame
   motion_ends : Map[Int, Double]
   mut cycling : Bool
+  /// covers by their ids, and those asked for this frame (cover.mbt)
+  covers : Map[Int, CoverState]
+  cover_asks : Array[CoverAsk]
   // the page being built (a page of a Nav, by its serial; 0 none), and the
   // ids of the state each page's widgets made, forgotten with the page
   mut owner : Int
@@ -273,6 +276,8 @@ fn Ctx::new() -> Ctx {
     springs: Map::new(),
     motion_ends: Map([]),
     cycling: false,
+    covers: Map::new(),
+    cover_asks: [],
     owner: 0,
     owned: Map::new(),
     back: None,

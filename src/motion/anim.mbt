@@ -31,8 +31,12 @@ pub struct Anim {
 }
 
 ///|
-/// The ids Anims say their ends by (apart from the views' own: a range of their own).
-let anim_ids : Ref[Int] = Ref::new(0x6d000000)
+/// Where the ids Anims say their ends by start (apart from the views' own: a range of their own).
+let anim_ids_from : Int = 0x6d000000
+
+///|
+/// The last id an Anim was given.
+let anim_ids : Ref[Int] = Ref::new(anim_ids_from)
 
 ///|
 /// A number at `v`, still.

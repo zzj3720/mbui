@@ -293,7 +293,8 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
 /// Draws frames until nothing asks for another (animations, scrolling and
 /// re-layouts have finished); returns how many it took. Still asked for after
 /// `max`, the test fails, saying why and who asked (Ctx::unsettled);
-/// `unsettled_ok`: it goes on instead (a test of what runs on).
+/// `unsettled_ok`: it goes on instead (a test of what runs on; the inputs' own, Tester::tap and the like: whether what
+/// is shown settles is the test's settle to say).
 pub fn Tester::settle(self : Tester, max? : Int = 600, unsettled_ok? : Bool = false) -> Int {
   let mut n = 0
   while n < max && (g().wants_frame || self.fake.wants) {
@@ -320,7 +321,7 @@ pub fn Tester::resize(self : Tester, w : Double, h : Double) -> Unit {
   self.w = w
   self.h = h
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|
@@ -328,7 +329,7 @@ pub fn Tester::tap(self : Tester, x : Double, y : Double) -> Unit {
   on_pointer(0, x, y, 0)
   on_pointer(2, x, y, 0)
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|
@@ -357,7 +358,7 @@ pub fn Tester::drag(
 pub fn Tester::wheel(self : Tester, x : Double, y : Double, dy : Double) -> Unit {
   on_wheel(x, y, 0.0, dy, 0)
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|
@@ -378,7 +379,7 @@ pub fn Tester::compose(self : Tester, s : String) -> Unit {
 pub fn Tester::key(self : Tester, code : Int, mods? : Int = 0) -> Unit {
   on_key(code, mods)
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|
@@ -753,7 +754,7 @@ pub fn Tester::press(self : Tester, name : String) -> Unit {
 pub fn Tester::back(self : Tester) -> Unit {
   on_back(2, 0.0, 1.0, 0)
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|
@@ -1104,7 +1105,7 @@ pub fn Tester::right_click(self : Tester, x : Double, y : Double) -> Unit {
   on_pointer(0, x, y, 2)
   on_pointer(2, x, y, 2)
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|
@@ -1210,7 +1211,7 @@ pub fn Tester::act(self : Tester, role : Role, action : Action, label? : String 
   }
   g().ask_action(s.id, action)
   self.frame()
-  self.settle() |> ignore
+  self.settle(unsettled_ok=true) |> ignore
 }
 
 ///|

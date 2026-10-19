@@ -1,0 +1,8 @@
+import {
+  "mbui/effect",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+)

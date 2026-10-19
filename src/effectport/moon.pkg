@@ -1,0 +1,7 @@
+import {
+  "mbui/effect",
+}
+
+import {
+  "moonbitlang/core/encoding/utf8",
+} for "wbtest"

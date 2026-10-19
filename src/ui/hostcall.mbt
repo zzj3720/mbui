@@ -33,8 +33,13 @@ struct FakeHost {
   // native views: what was asked of them, a line each ("open 1 video/mp4", "place 1 0 0 390 220 shown"…)
   views : Array[String]
   mut view_ids : Int
-  /// the views told ready (the host's event, at the frame after they opened): those up to this id
-  mut views_ready : Int
+  /// the views' readiness as the host's event told it (1 ready, -1 failed); not here: not yet
+  view_ready : Map[Int, Int]
+  /// what the host does for the app is done by itself at the next frame (Tester::new's `finish`); else the test says
+  /// when (Tester::finish, finish_all)
+  mut auto_finish : Bool
+  /// what it finished, in that order ((kind, id))
+  finished : Array[(Int, Int)]
   /// what its sites say, oldest first (Tester::site_says), as a site view's host would (view_site_next)
   site : Array[String]
   /// the pointer's shape as last told (desktop.mbt), and how often the window was asked to be dragged
@@ -511,6 +516,13 @@ fn h_view_control(id : Int, op : Int, value : Double) -> Unit {
 ///|
 fn h_view_info(id : Int, out : FixedArray[Double]) -> Int {
   match fake.val {
+    // a test that says when views are ready: not yet, until it does
+    Some(f) if !f.auto_finish && f.view_ready.get(id).unwrap_or(0) != 1 => {
+      for i in 0..<10 {
+        out[i] = 0.0
+      }
+      f.view_ready.get(id).unwrap_or(0)
+    }
     Some(_) => {
       out[0] = 10000.0
       out[1] = 0.0

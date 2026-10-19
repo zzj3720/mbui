@@ -10,7 +10,15 @@ on:
 
 jobs:
   windows:
-    runs-on: windows-latest
+    # RN 0.81.4's Hermes does not build with windows-latest's MSVC 14.51 (VS 18: HadesGC.cpp C2512, run 39230050008):
+    # clang-cl there, and MSVC 14.4x on windows-2022.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: windows-latest, cc: clang-cl }
+          - { image: windows-2022, cc: cl }
+    runs-on: ${{ matrix.image }}
     timeout-minutes: 150
     defaults:
       run:
@@ -26,7 +34,7 @@ jobs:
         run: |
           echo "logical processors: $NUMBER_OF_PROCESSORS"
           powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Select-Object Name,NumberOfCores,NumberOfLogicalProcessors | Format-List; (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB"
-          cl 2>&1 | head -1; cargo --version; rustc -vV | grep host; cmake --version | head -1; ninja --version; python --version; node -v
+          cl 2>&1 | head -1; clang-cl --version 2>&1 | head -1; cargo --version; rustc -vV | grep host; cmake --version | head -1; ninja --version; python --version; node -v
           # Git Bash's /usr/bin/link shadows MSVC's link.exe for cargo: name MSVC's.
           echo "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=$(cygpath -m "$(dirname "$(which cl)")/link.exe")" >> "$GITHUB_ENV"
       - name: Sources
@@ -63,7 +71,7 @@ jobs:
           printf 'add_executable(hermes-host main.cpp)\ntarget_link_libraries(hermes-host libhermes "%s" bcrypt psapi)\n' "$lib" > hermes/stillfail-host/CMakeLists.txt
           echo 'add_subdirectory(stillfail-host)' >> hermes/CMakeLists.txt
           start=$(date +%s)
-          cmake -S hermes -B hb -G Ninja -DCMAKE_BUILD_TYPE=Release -DHERMES_ENABLE_DEBUGGER=OFF -DHERMES_ENABLE_TEST_SUITE=OFF 2>&1 | tail -4
+          cmake -S hermes -B hb -G Ninja -DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cc }} -DCMAKE_BUILD_TYPE=Release -DHERMES_ENABLE_DEBUGGER=OFF -DHERMES_ENABLE_TEST_SUITE=OFF 2>&1 | tail -4
           set +e
           cmake --build hb --target hermes-host hermesc libhermes > hb-build.log 2>&1
           status=$?
@@ -98,7 +106,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: engine-probe
+          name: engine-probe-${{ matrix.image }}-${{ matrix.cc }}
           path: |
             run-win.jsonl
             shell-asis.log

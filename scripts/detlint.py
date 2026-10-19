@@ -22,9 +22,9 @@ The rules (see RULES below for each one's words):
     settle         anything waits for, or asks whether, the app is "settled" (Tester::settle / settled, Ctx::settled /
                    stable): stability is an assertion at the end (assert_idle), never a condition
     flow-wait      an end-to-end flow (*.drive) waits a fixed time (wait N, linger N)
-    script-wait    a test or screenshot script waits a fixed time, a fixed frame count, or for the page to settle
-                   (sleep N, MBUI_SHOT_AT=N, setTimeout(…, N), waitForTimeout(N), time.sleep(N),
-                   __mbhost.settled())
+    script-wait    a test or screenshot script waits a fixed time or a fixed frame count (sleep N, MBUI_SHOT_AT=N,
+                   setTimeout(…, N), waitForTimeout(N), time.sleep(N))
+    page-settle    a script waits on a web page until the app is settled (__mbhost.settled(), unsettled())
     frame-count    a test runs a fixed number of frames (for _ in 0..<N { t.frame() })
     literal-time   a time given as a bare number (run_for(347), wake_in(500.0), advance(16.0), frame(ms=33.0),
                    wake_at(c.now() + 500.0)): a time names what it is (an animation's, a timer's declared length)
@@ -518,6 +518,8 @@ RULES = {
     "flow-wait": "an end-to-end flow waits a fixed time: wait for the named thing (until, answered, ready, decoded)",
     "script-wait": "a test or screenshot script waits a fixed time or frame count: wait for the event, or take the "
                    "picture at a time the animations declare",
+    "page-settle": "a script waits on a web page until the app is settled (__mbhost.settled): take it at a declared "
+                   "time, or wait for the named thing",
     "frame-count": "a test runs a fixed number of frames: give the inputs and run_for a declared time",
     "literal-time": "a time given as a bare number: name what it is (an animation's or a timer's declared length)",
     "stable-mode": "the app draws otherwise when it is screenshotted (Ctx::stable): the picture is taken at a time "
@@ -846,8 +848,8 @@ SCRIPT_WAITS = [
     re.compile(r"\bsetTimeout\(.*[^\w.][0-9]"),
     re.compile(r"\bwaitForTimeout\("),
     re.compile(r"\btime\.sleep\("),
-    re.compile(r"\b__mb\w*\.(?:settled|unsettled)\b"),  # a web page waited on until the app is settled
 ]
+PAGE_SETTLE = re.compile(r"\b__mb\w*\.(?:settled|unsettled)\b")
 
 
 def lint_lines(rel, src, rule, pats, out, comment):
@@ -916,6 +918,7 @@ def collect(root, cfg):
                 texts[rel] = src.split("\n")
                 comment = "//" if n.endswith((".mjs", ".js", ".ts")) else "#"
                 lint_lines(rel, src, "script-wait", SCRIPT_WAITS, findings, comment)
+                lint_lines(rel, src, "page-settle", [PAGE_SETTLE], findings, comment)
     returns = {}
     for f in mbts:
         returns.update(f.returns())

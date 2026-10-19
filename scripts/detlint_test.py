@@ -138,14 +138,20 @@ class Rules(unittest.TestCase):
             "scripts/shots.sh": "MBUI_SCRIPT=shot MBUI_SHOT_AT=60 ./app\nsleep 3\n",
             "scripts/web.mjs": "await page.waitForTimeout(Number(process.env.WAIT || 800));\n"
                                "await new Promise((r) => setTimeout(r, 500));\n"
-                               "await page.waitForFunction(() => __mbhost.settled(), null, { timeout: 30000 });\n",
         }
-        found(self, bad, "script-wait", 5)
+        found(self, bad, "script-wait", 4)
         good = {
             "scripts/shots.sh": "# sleep 3 was here\nMBUI_SCRIPT=shot ./app\nwait $pid\n",
             "scripts/web.mjs": "await page.waitForFunction(() => window.__mb !== undefined);\n",
         }
         found(self, good, "script-wait", 0)
+
+    def test_page_settle(self):
+        bad = {"scripts/web.mjs": "await page.waitForFunction(() => __mbhost.settled(), null, { timeout: 30000 });\n"
+                                  "console.log(await page.evaluate(() => __mbhost.unsettled()));\n"}
+        found(self, bad, "page-settle", 2)
+        good = {"scripts/web.mjs": "// __mbhost.settled() was here\nawait page.evaluate(() => __mbhost.run_for(t));\n"}
+        found(self, good, "page-settle", 0)
 
     def test_frame_count(self):
         bad = {"src/app/view_test.mbt": "test \"x\" {\n  for _ in 0..<60 {\n    t.frame()\n  }\n}\n"}

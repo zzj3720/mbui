@@ -604,6 +604,12 @@ static void make_web(View *v) {
   if (FAILED(hr)) fail(v, "its web view could not be asked for", hr);
 }
 
+// MBUI_WEBVIEW2_DIR: a fixed-version runtime's folder to use instead of the installed one (NULL: the installed one)
+static const wchar_t *runtime_dir(void) {
+  const wchar_t *d = _wgetenv(L"MBUI_WEBVIEW2_DIR");
+  return d && *d ? d : NULL;
+}
+
 static void make_env(void) {
   env_state = 1;
   wchar_t dir[MAX_PATH + 32];
@@ -630,12 +636,6 @@ static void make_env(void) {
     vlog("view: no WebView2 environment (0x%08lx)", (unsigned long)hr);
     for (auto &kv : views) fail(kv.second, "no WebView2 environment", hr);
   }
-}
-
-// MBUI_WEBVIEW2_DIR: a fixed-version runtime's folder to use instead of the installed one (NULL: the installed one)
-static const wchar_t *runtime_dir(void) {
-  const wchar_t *d = _wgetenv(L"MBUI_WEBVIEW2_DIR");
-  return d && *d ? d : NULL;
 }
 
 // Whether WebView2's runtime is installed (looked for once).

@@ -73,6 +73,8 @@ fn Anim::step(self : Anim, c : @ui.Ctx) -> Unit {
       return
     }
     self.start = c.now()
+    // (said to move again: not read in the frame it was to start in, it had been let be)
+    c.moving(self.id, self as &@ui.Moving)
   }
   let ms = c.now() - self.start
   match (self.gen, self.spec) {
@@ -108,19 +110,21 @@ fn Anim::finish(self : Anim) -> Unit {
 }
 
 ///|
-/// When it is there (whole ms, as its time goes): asked at each frame's end while it moves. Told to go and not yet
-/// started (it starts at the first frame after it was told), that frame is this one if this is past it.
+/// When it is there (whole ms, as its time goes), asked at each frame's end while it moves (and by whoever wants the
+/// last end: Tester::motion_end): read only, the same whoever asks first. Told to go, it starts at the first frame
+/// after (its first step there): until then +inf; not read in that frame (nothing shows it), at rest, said to move
+/// again by its first step.
 pub impl @ui.Moving for Anim with rest_at(self, now, frame) {
+  ignore(now)
   if !self.running {
-    return -1.0
+    -1.0
+  } else if self.start >= 0.0 {
+    self.start + self.dur.ceil()
+  } else if frame <= self.asked {
+    @double.infinity
+  } else {
+    -1.0
   }
-  if self.start < 0.0 {
-    if frame <= self.asked {
-      return @double.infinity
-    }
-    self.start = now
-  }
-  self.start + self.dur.ceil()
 }
 
 ///|

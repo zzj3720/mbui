@@ -69,6 +69,7 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
   // inputs came before this frame: one more, for what they changed late in it (inputrec.mbt `took_input`)
   if fed {
     c.wants_frame = true
+    c.frame_waited = true
   }
   let t3 = h_now()
   h_present(c.inst, c.ninst)
@@ -136,6 +137,7 @@ fn frame_body(c : Ctx, w : Double, h : Double, scale : Double, t : Double) -> Do
     c.epoch = c.epoch + 1
   }
   c.wants_frame = false
+  c.frame_waited = false
   c.wake_at = -1.0
   c.wake_waited = -1.0
   c.frame_by = None

@@ -296,11 +296,11 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
 /// `unsettled_ok`: it goes on instead (a test of what runs on).
 pub fn Tester::settle(self : Tester, max? : Int = 600, unsettled_ok? : Bool = false) -> Int {
   let mut n = 0
-  while n < max && (g().wants_frame || self.fake.wants) {
+  while n < max && (g().frame_waited || self.fake.wants) {
     self.frame()
     n = n + 1
   }
-  if !unsettled_ok && n >= max && (g().wants_frame || self.fake.wants) {
+  if !unsettled_ok && n >= max && (g().frame_waited || self.fake.wants) {
     let why = "Tester::settle: not settled after \{max} frames: " + g().unsettled()
     println(why)
     abort(why)
@@ -465,7 +465,7 @@ pub fn Tester::views(self : Tester) -> Array[String] {
 /// taken on the next frame.
 pub fn Tester::site_says(self : Tester, event : String) -> Unit {
   self.fake.site.push(event)
-  g().wants_frame = true
+  g().request_frame()
 }
 
 ///|

@@ -122,6 +122,8 @@ pub struct Ctx {
   // (Ctx::flex_tree)
   mut epoch : Int
   mut wants_frame : Bool
+  /// a frame asked for that what is shown waits for (Ctx::request_frame not `endless`): what keeps it unsettled
+  mut frame_waited : Bool
   mut wake_at : Double
   /// the earliest wake asked for this frame that what is shown waits for (not `later`): -1 none
   mut wake_waited : Double
@@ -240,6 +242,7 @@ fn Ctx::new() -> Ctx {
     frame_no: 0,
     epoch: 0,
     wants_frame: false,
+    frame_waited: false,
     wake_at: -1.0,
     wake_waited: -1.0,
     frame_by: None,
@@ -630,16 +633,21 @@ pub fn Ctx::pressed(self : Ctx, id : Int) -> Bool {
 let in_frame : Ref[Bool] = Ref::new(false)
 
 ///|
+/// The next frame, asked for. `endless`: by an animation that never ends by itself (a placeholder's breath, a
+/// spinner): drawn on, but what is shown is settled without it (Ctx::settled), its phase the clock's at any time.
 #callsite(autofill(loc))
-pub fn Ctx::request_frame(self : Ctx, loc~ : SourceLoc) -> Unit {
+pub fn Ctx::request_frame(self : Ctx, endless? : Bool = false, loc~ : SourceLoc) -> Unit {
   self.wants_frame = true
   // asked between frames (a host's callback, a timer's): the frame's own asking (on_frame's end) is past, so the
   // host is told now, else nothing comes (the next frame's start clears wants_frame)
   if !in_frame.val {
     h_request_frame()
   }
-  if self.frame_by is None {
-    self.frame_by = Some(loc)
+  if !endless {
+    self.frame_waited = true
+    if self.frame_by is None {
+      self.frame_by = Some(loc)
+    }
   }
 }
 

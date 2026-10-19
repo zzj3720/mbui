@@ -113,19 +113,19 @@ pub fn Ctx::effect(self : Ctx, key : String, f : async (@effect.Scope) -> Unit) 
 }
 
 ///|
-/// What is shown is settled: the frame just built asks for no other, no wake is due that it waits for (Ctx::wake_in
+/// What is shown is settled: the frame just built asks for no other (but an endless animation's), no wake is due that it waits for (Ctx::wake_in
 /// without `later`), and the window's runtime is settled — no fiber waits for a frame or for the host (an image
 /// decoding, a view loading: hostcall.mbt's tickets), no timer set that is not `later`. What a scripted step or a
 /// screenshot waits for.
 pub fn Ctx::settled(self : Ctx) -> Bool {
-  !self.wants_frame && self.wake_waited < 0.0 && fx.val.settled()
+  !self.frame_waited && self.wake_waited < 0.0 && fx.val.settled()
 }
 
 ///|
 /// Why what is shown is not settled (Ctx::settled), said: "" when it is.
 pub fn Ctx::unsettled(self : Ctx) -> String {
   let why : Array[String] = []
-  if self.wants_frame {
+  if self.frame_waited {
     why.push(
       "a frame asked for" +
       (match self.frame_by {

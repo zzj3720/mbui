@@ -166,3 +166,34 @@ test "with a seed, the order ready fibers run in is drawn from it, and a seed re
   // more than one interleaving was tried
   assert_true(seen.length() > 1)
 }
+
+///|
+test "an endless animation (a spinner) is drawn on, and what is shown is settled with it; one that ends is waited for" {
+  let ends_at = Ref::new(0.0)
+  let t = @ui.Tester::new(
+    fn(c) {
+      // a spinner's turn: never over
+      c.request_frame(endless=true)
+      let a = c.now() / 800.0
+      c.box(w=Px(10.0 + (a - a.floor()) * 10.0), h=Px(10.0), fn() {  })
+      if c.now() < ends_at.val {
+        c.request_frame()
+      }
+    },
+    w=100.0,
+    h=100.0,
+  )
+  t.frame()
+  assert_true(t.ctx().wants_frame)
+  assert_true(t.settled())
+  assert_eq(t.unsettled(), "")
+  assert_eq(t.settle(), 0)
+  ends_at.val = t.ctx().now() + 200.0
+  t.frame()
+  assert_true(!t.settled())
+  assert_true(t.unsettled().contains("a frame asked for"))
+  let n = t.settle()
+  assert_true(n > 0)
+  assert_true(t.settled())
+  assert_true(t.ctx().wants_frame)
+}

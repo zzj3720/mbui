@@ -126,10 +126,22 @@ pub fn Ctx::settled(self : Ctx) -> Bool {
 pub fn Ctx::unsettled(self : Ctx) -> String {
   let why : Array[String] = []
   if self.wants_frame {
-    why.push("a frame asked for")
+    why.push(
+      "a frame asked for" +
+      (match self.frame_by {
+        Some(l) => " (by \{l})"
+        None => ""
+      }),
+    )
   }
   if self.wake_waited >= 0.0 {
-    why.push("a wake at \{self.wake_waited.to_int()} ms it waits for")
+    why.push(
+      "a wake at \{self.wake_waited.to_int()} ms it waits for" +
+      (match self.wake_by {
+        Some(l) => " (by \{l})"
+        None => ""
+      }),
+    )
   }
   let rt = fx.val.unsettled()
   if rt != "" {

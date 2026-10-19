@@ -125,6 +125,10 @@ pub struct Ctx {
   mut wake_at : Double
   /// the earliest wake asked for this frame that what is shown waits for (not `later`): -1 none
   mut wake_waited : Double
+  /// who asked for the next frame first this frame (Ctx::request_frame's caller), and for the wake it waits for
+  /// (Ctx::wake_in's): what an unsettled run says (Ctx::unsettled)
+  mut frame_by : SourceLoc?
+  mut wake_by : SourceLoc?
   // hit targets of the last frame, in paint order, and those being collected
   mut hit_ids : Array[Int]
   mut hit_rects : Array[Double]
@@ -238,6 +242,8 @@ fn Ctx::new() -> Ctx {
     wants_frame: false,
     wake_at: -1.0,
     wake_waited: -1.0,
+    frame_by: None,
+    wake_by: None,
     hit_ids: [],
     hit_rects: [],
     next_hit_ids: [],
@@ -619,8 +625,12 @@ pub fn Ctx::pressed(self : Ctx, id : Int) -> Bool {
 }
 
 ///|
-pub fn Ctx::request_frame(self : Ctx) -> Unit {
+#callsite(autofill(loc))
+pub fn Ctx::request_frame(self : Ctx, loc~ : SourceLoc) -> Unit {
   self.wants_frame = true
+  if self.frame_by is None {
+    self.frame_by = Some(loc)
+  }
 }
 
 ///|
@@ -776,6 +786,10 @@ pub fn Ctx::copy_text(self : Ctx, s : String) -> Unit {
 /// does not wait for it to be settled (Ctx::settled: words going back after a
 /// while, a refresh); by default it does (a press held long enough, a menu
 /// opening once the pointer rests).
-pub fn Ctx::wake_in(self : Ctx, ms : Double, later? : Bool = false) -> Unit {
+#callsite(autofill(loc))
+pub fn Ctx::wake_in(self : Ctx, ms : Double, later? : Bool = false, loc~ : SourceLoc) -> Unit {
+  if !later && self.wake_by is None {
+    self.wake_by = Some(loc)
+  }
   self.wake_at_time(self.now + dmax(ms, 1.0), later~)
 }

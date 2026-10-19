@@ -130,6 +130,8 @@ fn frame_body(c : Ctx, w : Double, h : Double, scale : Double, t : Double) -> Do
   c.wants_frame = false
   c.wake_at = -1.0
   c.wake_waited = -1.0
+  c.frame_by = None
+  c.wake_by = None
   check_atlas()
   if bench.mode > 0 && c.bench_list != 0 && bench.frames >= 30 {
     c.scroll_list(c.bench_list, bench.speed)

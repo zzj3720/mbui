@@ -539,7 +539,11 @@ pub fn list_keys(
   for i, k in ks {
     if old.contains(k) {
       match kept_before.get(k) {
-        Some(r) if r > kept_i && liftable(keys[i]) => lm.lifted[k] = now
+        Some(r) if r > kept_i && liftable(keys[i]) => {
+          lm.lifted[k] = now
+          // frames while it passes over the others (lift_ms from now)
+          c.moving(c.mover_id(), (Lift::{ at: now }) as &@ui.Moving)
+        }
         _ => ()
       }
       kept_i = kept_i + 1
@@ -593,17 +597,30 @@ pub fn list_unghost(c : @ui.Ctx, list : Int, key : String) -> Unit {
 }
 
 ///|
+/// How long a row that went ahead of others takes to pass over them (ListMotion.kt liftedAt).
+pub let lift_ms : Double = 480.0
+
+///|
+/// A row going ahead of others: it moves until lift_ms after `at`.
+priv struct Lift {
+  at : Double
+}
+
+///|
+impl @ui.Moving for Lift with rest_at(self, now, frame) {
+  ignore(now)
+  ignore(frame)
+  self.at + lift_ms
+}
+
+///|
 /// How long ago row `key` of list `list` (its id, as list_keys answers) went ahead of others (ms), while it passes
 /// over them (480 ms: ListMotion.kt liftedAt); -1 otherwise.
 pub fn lifted(c : @ui.Ctx, list : Int, key : String) -> Double {
   match mo.lists.get(list) {
     Some(lm) =>
       match lm.lifted.get(motion_key(key)) {
-        Some(at) if c.now() - at < 480.0 => {
-          // frames until it has passed (480 ms from when it went ahead)
-          c.motion_until(hash_mix(list, motion_key(key)), at + 480.0)
-          c.now() - at
-        }
+        Some(at) if c.now() - at < lift_ms => c.now() - at
         Some(_) => {
           lm.lifted.remove(motion_key(key))
           -1.0

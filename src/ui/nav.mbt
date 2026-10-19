@@ -59,6 +59,9 @@ struct Nav[P] {
   mut vel : Double
   track : Tracker
   on_leave : (P) -> Unit
+  /// what its motion is said to move by (Ctx::moving), and the frame it was told to move in
+  mover : Int
+  mut asked : Int
 }
 
 ///|
@@ -80,6 +83,8 @@ pub fn[P] Nav::new(root : P, on_leave? : (P) -> Unit = fn(_) {  }) -> Nav[P] {
     vel: 0.0,
     track: Tracker::new(),
     on_leave,
+    mover: g().mover_id(),
+    asked: -1,
   }
 }
 
@@ -122,6 +127,25 @@ fn[P] Nav::go(self : Nav[P], mode : Int, p1 : Double, dur : Double, curve : Curv
   self.dur = dur
   self.curve = curve
   self.t0 = -1.0
+  // said once, as it sets out: frames until it is there (it starts at the next frame)
+  self.asked = g().frame_no
+  g().moving(self.mover, self as &Moving)
+}
+
+///|
+/// When its slide is over: asked at each frame's end while it slides. Not yet started (it starts at the first frame
+/// after it was told), that frame is this one if this is past it.
+impl[P] Moving for Nav[P] with rest_at(self, now, frame) {
+  if self.mode != 1 && self.mode != 2 && self.mode != 4 {
+    return -1.0
+  }
+  if self.t0 < 0.0 {
+    if frame <= self.asked {
+      return 1.0 / 0.0
+    }
+    self.t0 = now
+  }
+  self.t0 + self.dur
 }
 
 ///|
@@ -308,9 +332,6 @@ pub fn[P] Ctx::nav(
     nav.p = nav.p0 + (nav.p1 - nav.p0) * nav.curve.at(dmin(t, 1.0))
     if t >= 1.0 {
       nav.settle()
-    } else {
-      // said once it has started: frames until it ends (its stack's own id, by its bottom page's serial)
-      self.motion_until(0x6e000000 + nav.pages[0].serial, nav.t0 + nav.dur)
     }
   }
   let n = nav.pages.length()

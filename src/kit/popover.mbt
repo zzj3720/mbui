@@ -41,7 +41,7 @@ pub fn popover(
       now = false
     }
   }
-  { value: now, response: { ..@ui.Response::none(), id: c.id(key), changed: now != open } }
+  { value: now, response: { ..@ui.Response::none(), id: c.id(key), changed: told(c, now != open) } }
 }
 
 ///|
@@ -84,6 +84,7 @@ pub fn hover_card(
     ignore(after(c, key + "/in", false, open_delay))
     ignore(after(c, key + "/out", false, close_delay))
   }
+  ignore(told(c, open != was))
   kit.val.opens[id] = open
   open
 }
@@ -133,6 +134,7 @@ pub fn tooltip(
   if was && !open {
     kit.val.tip_closed = c.now()
   }
+  ignore(told(c, open != was))
   kit.val.opens[id] = open
   open
 }

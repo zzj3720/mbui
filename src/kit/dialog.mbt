@@ -57,7 +57,7 @@ pub fn dialog(
       now = false
     }
   }
-  { value: now, response: { ..@ui.Response::none(), id: c.id(key), changed: now != open } }
+  { value: now, response: { ..@ui.Response::none(), id: c.id(key), changed: told(c, now != open) } }
 }
 
 ///|
@@ -112,6 +112,7 @@ pub fn alert_dialog(
       now = false
     }
   }
+  ignore(told(c, now != open))
   { open: now, confirmed }
 }
 

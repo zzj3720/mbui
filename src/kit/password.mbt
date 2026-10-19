@@ -53,5 +53,5 @@ pub fn password_field(
     },
   )
   |> ignore
-  { text: words, visible: shows, toggle: r.changed_to(shows != visible) }
+  { text: words, visible: shows, toggle: r.changed_to(told(c, shows != visible)) }
 }

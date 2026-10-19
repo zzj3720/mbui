@@ -104,3 +104,13 @@ fn dmax(a : Double, b : Double) -> Double {
     b
   }
 }
+
+///|
+/// `yes` (a widget's value changed as it was built): a frame again, so that what the view builds from the value it
+/// keeps shows it.
+fn told(c : @ui.Ctx, yes : Bool) -> Bool {
+  if yes {
+    c.request_frame()
+  }
+  yes
+}

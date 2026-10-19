@@ -163,6 +163,7 @@ pub fn toaster(
     c.semantics(region, Region, label~)
   })
   |> ignore
+  ignore(told(c, open.length() != toasts.length()))
   kept.drawn = drawn
   { open, acted }
 }

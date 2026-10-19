@@ -37,7 +37,7 @@ struct FakeHost {
   view_ready : Map[Int, Int]
   /// what the host does for the app is done by itself at the next frame (Tester::new's `finish`); else the test says
   /// when (Tester::finish, finish_all)
-  mut auto_finish : Bool
+  auto_finish : Bool
   /// what it finished, in that order ((kind, id))
   finished : Array[(Int, Int)]
   /// what its sites say, oldest first (Tester::site_says), as a site view's host would (view_site_next)

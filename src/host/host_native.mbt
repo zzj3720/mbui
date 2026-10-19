@@ -84,6 +84,7 @@ extern "C" fn ffi_bench_mode() -> Int = "mb_host_bench_mode"
 extern "C" fn ffi_set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Int = "mb_host_set_outside"
 
 ///|
+#borrow(what)
 extern "C" fn ffi_frame_settled(settled : Bool, awaiting : Int, what : String) -> Unit = "mb_host_frame_settled"
 
 ///|

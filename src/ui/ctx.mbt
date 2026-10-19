@@ -97,15 +97,6 @@ struct EditorState {
 }
 
 ///|
-struct Spring {
-  // where it was going from: its place and speed then, the target, the time (ms) it set out
-  mut x0 : Double
-  mut v0 : Double
-  mut target : Double
-  mut t0 : Double
-}
-
-///|
 pub struct Ctx {
   nodes : Array[Node]
   mut count : Int
@@ -167,7 +158,7 @@ pub struct Ctx {
   // persistent widget state
   lists : Map[Int, ListState]
   editors : Map[Int, EditorState]
-  springs : Map[Int, Spring]
+  springs : Map[Int, SpringPath]
   /// the motions said and their ends (motion_data.mbt), and whether a cycle was read this frame
   motion_ends : Map[Int, Double]
   mut cycling : Bool
@@ -697,41 +688,19 @@ pub fn Ctx::spring(
   let s = match self.springs.get(id) {
     Some(s) => s
     None => {
-      let x = match from {
-        Some(f) => f
-        None => target
-      }
-      let s = { x0: x, v0: 0.0, target, t0: self.now }
+      let s = SpringPath::new(from.unwrap_or(target), k=stiffness, c=damping)
       self.springs[id] = s
       self.own(id)
-      // (a spring born away from its target sets out now)
-      if x != target {
-        self.motion_until(id, self.now + 1000.0 * spring_end(x - target, 0.0, stiffness, damping, 0.001))
-      }
       s
     }
   }
-  // where it is now: a function of the time since it set out (motion_data.mbt)
-  let (d, v) = spring_at(s.x0 - s.target, s.v0, stiffness, damping, dmax(0.0, self.now - s.t0) / 1000.0)
-  if target != s.target {
-    // a new target: it sets out again from here, as fast as it goes
-    s.x0 = s.target + d
-    s.v0 = v
-    s.target = target
-    s.t0 = self.now
-    self.motion_until(id, self.now + 1000.0 * spring_end(s.x0 - target, v, stiffness, damping, 0.001))
-    return s.x0
+  // where it is now: a function of the time since it set out (motion_data.mbt); a new target (or one born away from
+  // it) sets it out again from here, as fast as it goes
+  if target != s.target() {
+    s.go(self.now, target)
+    self.motion_until(id, s.end())
   }
-  let end = self.motion_ends.get(id)
-  match end {
-    Some(e) if e > self.now => s.target + d
-    _ => {
-      // at rest
-      s.x0 = s.target
-      s.v0 = 0.0
-      s.target
-    }
-  }
+  s.value(self.now)
 }
 
 ///|

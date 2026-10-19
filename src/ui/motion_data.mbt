@@ -51,6 +51,76 @@ pub fn Ctx::motion_end(self : Ctx) -> Double {
 // ── a spring, solved ─────────────────────────────────────────────────────────
 
 ///|
+/// A spring's way as data: from `x0` (moving at `v0` a second) at `t0` (ms, the frames' clock) towards `to`, by
+/// stiffness `k` and damping `c`, at rest (`to`, within `rest`) from `end` on. Where it is at a time is solved, not
+/// stepped, so it is the same at any frame rate; the way is said anew only when it is sent somewhere else (go) or put
+/// somewhere (put). Who keeps one says its end with Ctx::motion_until.
+pub struct SpringPath {
+  priv mut x0 : Double
+  priv mut v0 : Double
+  priv mut to : Double
+  priv mut t0 : Double
+  priv mut end : Double
+  priv k : Double
+  priv c : Double
+  priv rest : Double
+}
+
+///|
+/// A spring at rest at `x`.
+pub fn SpringPath::new(x : Double, k~ : Double, c~ : Double, rest? : Double = 0.001) -> SpringPath {
+  { x0: x, v0: 0.0, to: x, t0: 0.0, end: -1.0, k, c, rest }
+}
+
+///|
+/// Where it is at `now` and how fast it goes (a second).
+pub fn SpringPath::at(self : SpringPath, now : Double) -> (Double, Double) {
+  if now >= self.end {
+    return (self.to, 0.0)
+  }
+  let (d, v) = spring_at(self.x0 - self.to, self.v0, self.k, self.c, dmax(0.0, now - self.t0) / 1000.0)
+  (self.to + d, v)
+}
+
+///|
+/// Where it is at `now`.
+pub fn SpringPath::value(self : SpringPath, now : Double) -> Double {
+  self.at(now).0
+}
+
+///|
+/// Where it goes.
+pub fn SpringPath::target(self : SpringPath) -> Double {
+  self.to
+}
+
+///|
+/// When it is at rest (the frames' clock, ms; before now: it is).
+pub fn SpringPath::end(self : SpringPath) -> Double {
+  self.end
+}
+
+///|
+/// Sent to `to` at `now`, from where it is then, as fast as it goes then (or at `v` a second).
+pub fn SpringPath::go(self : SpringPath, now : Double, to : Double, v? : Double) -> Unit {
+  let (x, v1) = self.at(now)
+  self.x0 = x
+  self.v0 = v.unwrap_or(v1)
+  self.to = to
+  self.t0 = now
+  self.end = now + 1000.0 * spring_end(x - to, self.v0, self.k, self.c, self.rest)
+}
+
+///|
+/// At `x` at once, at rest (held by a finger, placed).
+pub fn SpringPath::put(self : SpringPath, x : Double) -> Unit {
+  self.x0 = x
+  self.v0 = 0.0
+  self.to = x
+  self.end = -1.0
+}
+
+///|
 /// A damped spring's way from `x0` (moving at `v0`, per second) to rest at 0, `t` seconds on: where it is and how
 /// fast it goes. Under-, critically and over-damped, in closed form.
 fn spring_at(x0 : Double, v0 : Double, k : Double, c : Double, t : Double) -> (Double, Double) {

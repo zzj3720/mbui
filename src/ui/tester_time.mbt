@@ -9,7 +9,8 @@
 /// (what read it late: a list's rows), a layout read back once more; after a change the test made (a value it set),
 /// the frame that shows it. Three at most.
 pub fn Tester::draw(self : Tester) -> Unit {
-  let mut n = 0
+  self.frame(ms=0.0)
+  let mut n = 1
   while n < 3 && (g().wants_frame || self.fake.wants) {
     self.frame(ms=0.0)
     n = n + 1

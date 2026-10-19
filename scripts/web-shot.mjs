@@ -14,7 +14,8 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(f).pipe(res);
 });
 await new Promise((r) => server.listen(0, r));
-const browser = await chromium.launch();
+// a player plays when the app says so, as on the other hosts (Chromium's own rule wants a press on the page first)
+const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
 // QUERY: more of the page's query (MBUI_SCREEN=kit: the demo's kit screen)
 fs.rmSync(process.argv[2], { force: true });
@@ -22,8 +23,8 @@ await page.goto(`http://127.0.0.1:${server.address().port}/?bench=-1${process.en
 await page.waitForFunction(() => window.__mb !== undefined);
 // shot once the app is settled (web/host.js __mbhost.settled: as its last frame said, no frame asked for since);
 // SETTLE_TIMEOUT (30000 ms) without is a failure, said with what it awaits, and no picture
-const settled = await page.waitForFunction(() => __mbhost.settled(), null, { timeout: Number(process.env.SETTLE_TIMEOUT || 30000) })
-  .then(() => true, () => false);
+const settled = await page.waitForFunction(() => window.__done !== undefined || __mbhost.settled(), null, { timeout: Number(process.env.SETTLE_TIMEOUT || 30000) })
+  .then(() => page.evaluate(() => __mbhost.settled()), () => false);
 if (settled) await page.screenshot({ path: process.argv[2] });
 else console.log(`SETTLE FAIL ${process.argv[2]}: not settled:`, JSON.stringify(await page.evaluate(() => __mbhost.unsettled())));
 await browser.close();

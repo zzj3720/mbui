@@ -27,7 +27,7 @@
     frames++;
   }
   H.requestFrame = () => {
-    if (!pending && cb) {
+    if (!pending && cb && window.__done === undefined) {
       pending = true;
       requestAnimationFrame(tick);
     }
@@ -41,11 +41,11 @@
   // until the app answers. Always from the event loop, never inside a call of the app's (a frame, a read answered).
   // Each frame says at its end whether what it shows is settled (ui's Ctx::settled: no frame asked for, nothing
   // awaited of the host, no timer set that what is shown waits for), how many of its asks the host has not answered
-  // and what they are.
-  let outside = null, appSettled = false, awaiting = 0, awaited = '';
+  // and, when not settled, why (what it awaits, who asked for the frame or the wake it waits for).
+  let outside = null, appSettled = false, awaiting = 0, why = '';
   const told = new Set();
   H.setOutside = (f) => { outside = f; return true; };
-  H.frameSettled = (settled, n, what) => { appSettled = !!settled; awaiting = n; awaited = what; };
+  H.frameSettled = (settled, n, what) => { appSettled = !!settled; awaiting = n; why = what; };
   function tell(kind, id, state) {
     if (!outside) return;
     if (state !== 0) {
@@ -56,9 +56,11 @@
     queueMicrotask(() => outside(kind, id, state));
   }
   // Settled: as the last frame said, and no frame asked for since. What a screenshot waits for
-  // (page.waitForFunction(() => __mbhost.settled())); unsettled() says what it is not settled on.
-  H.settled = () => frames > 0 && appSettled && !pending;
-  H.unsettled = () => ({ frames, settled: appSettled, pending, awaiting, awaited });
+  // (page.waitForFunction(() => __mbhost.settled())); unsettled() says why it is not.
+  // (not once the app has ended: a stable run that fails, an idle spin, ends itself with exit(3), its words logged)
+  H.settled = () => frames > 0 && appSettled && !pending && window.__done === undefined;
+  H.unsettled = () => ({ frames, settled: appSettled, pending, awaiting, why, done: window.__done,
+    said: window.__logs.filter((l) => l.startsWith('SETTLE')).slice(-3) });
 
   function resize() {
     dpr = window.devicePixelRatio || 1;
@@ -555,6 +557,9 @@
       // its first frame can be shown: ready for the app
       el.addEventListener('loadeddata', () => { v.info[6] = 1; ready(id, v, 1); H.requestFrame(); });
       el.addEventListener('error', () => { v.state = -1; ready(id, v, -1); H.requestFrame(); });
+      // the app asks for frames only while it plays and is not waiting for what it needs (info 7): a frame as that
+      // changes
+      for (const e of ['play', 'playing', 'waiting', 'pause', 'stalled', 'canplay', 'ended']) el.addEventListener(e, H.requestFrame);
       v.el = el;
       v.type = arg;
       // the whole file read through the app, a part at a time, then played
@@ -611,6 +616,8 @@
     if (v.kind === 1) {
       v.info[1] = v.el.currentTime * 1000;
       v.info[2] = v.el.paused || v.el.ended ? 0 : 1;
+      // waiting for what it needs to go on playing
+      v.info[7] = v.info[2] && v.el.readyState < 3 ? 1 : 0;
       // how far on it has what it needs: the end of the buffered range the playhead is in; whether it played to its end
       const b = v.el.buffered, t = v.el.currentTime;
       v.info[8] = 0;
@@ -1038,6 +1045,7 @@
   };
   H.log = (s) => { console.log(s); window.__logs.push(s); };
   H.benchMode = () => Number(params.get('bench') || 0);
+  // the app's end: no frame after it (a page cannot close itself; whoever drives it reads __done)
   H.exit = (code) => { window.__done = code; document.title = 'DONE ' + code; };
   H.eventTime = () => evT;
   H.reduceTransparency = () => !!(window.matchMedia && matchMedia('(prefers-reduced-transparency: reduce)').matches);

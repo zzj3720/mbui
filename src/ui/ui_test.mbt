@@ -409,7 +409,7 @@ test "a scripted step the app never settles for fails, naming what is still awai
   )
   assert_true(failed.contains("EXIT 1"))
   // what does not wait for it still goes (`now`, `wait`)
-  let log = t.drive("timeout 300\nnow until 在这里\nwait 50\nexit")
+  let log = t.drive("timeout 300\nnow until 在这里\nwait 50\nnow exit")
   assert_true(log.contains("DRIVE PASS"))
   // a frame asked for every frame (a spinner that never stops)
   let t = @ui.Tester::new(fn(c) {

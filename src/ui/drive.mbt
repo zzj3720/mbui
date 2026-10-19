@@ -47,13 +47,14 @@
 //                               it on its way; after a `wait` into the motion)
 // A step that looks at the screen or acts on it (until, untiln, gone, field, empty, clear, tap, tap1, tapxy, hold,
 // type, mark, enter, backspace, back, paste, pasten, wheel, wheelat, move, hover, rightclick, key, resize, drag,
-// dragon, shot) first waits, within its timeout, for the app to be settled (Ctx::settled: the frame just drawn asks
-// for no other, no fiber waits for a frame, nothing is awaited from the host, as an image decoding or a page loading,
-// and no timer or wake is set that is not `later`), so that a page sliding in, a sheet opening, a list scrolling or
-// a picture coming needs no `wait`; a check holds once it is so at a settled frame. One the app never settles for
-// fails, saying what is still awaited (since when) and whether a frame was still asked for. `wait` stays a pause in
-// real time, for what is outside the app (a command beside the run, the other device, the station) that no `until`
-// can see, or for a point inside a motion (then `now` steps).
+// dragon, shot; exit and the script's end too) first waits, within its timeout, for the app to be settled
+// (Ctx::settled: the frame just drawn asks for no other, nothing is awaited from the host — an image decoding, a page
+// loading — or, where the app says so, from its core, and no timer or wake is set that is not `later`), so that a
+// page sliding in, a sheet opening, a list scrolling or a picture coming needs no `wait`; a check holds once it is so
+// at a settled frame. One the app never settles for fails, saying why (Ctx::unsettled: what is awaited since when,
+// who asked for a frame or a wake); one waiting more than a second says so on the log (DRIVE waiting …). `wait`
+// stays a pause in real time, for what is outside the app (a command beside the run, the other device, the station)
+// that no `until` can see, or for a point inside a motion (then `now` steps).
 // A step that fails logs DRIVE FAIL (its line, what was on screen), takes a shot "fail" and exits 1.
 
 ///|
@@ -248,7 +249,8 @@ fn drive_shot(d : Driver, name : String) -> Bool {
 
 ///|
 fn drive_fail(c : Ctx, d : Driver, why : String) -> Unit {
-  h_log("DRIVE FAIL line \{d.at + 1}: \{d.steps[d.at]}: \{why}")
+  let line = if d.at < d.steps.length() { d.steps[d.at] } else { "(the script's end)" }
+  h_log("DRIVE FAIL line \{d.at + 1}: \{line}: \{why}")
   h_log("DRIVE FAIL on screen: " + screen_words(c))
   let f = field_words(c)
   if f != "" {
@@ -331,9 +333,9 @@ fn press(x : Double, y : Double, up : Bool) -> Unit {
 /// The steps that look at the screen or act on it: each first waits for the app to be settled (unless `now`).
 fn settles_first(cmd : String) -> Bool {
   match cmd {
-    "until" | "untiln" | "gone" | "field" | "empty" | "clear" | "tap" | "tap1" | "tapxy" | "hold" | "type" | "mark" | "enter"
-    | "backspace" | "back" | "paste" | "pasten" | "wheel" | "wheelat" | "move" | "hover" | "rightclick" | "key" | "resize"
-    | "drag" | "dragon" | "shot" => true
+    "until" | "untiln" | "gone" | "field" | "empty" | "clear" | "tap" | "tap1" | "tapxy" | "hold" | "type"
+    | "mark" | "enter" | "backspace" | "back" | "paste" | "pasten" | "wheel" | "wheelat" | "move" | "hover"
+    | "rightclick" | "key" | "resize" | "drag" | "dragon" | "shot" | "exit" => true
     _ => false
   }
 }
@@ -456,7 +458,8 @@ fn drive_frame(c : Ctx) -> Unit {
             }
           None => ""
         }
-        drive_fail(c, d, "the app did not settle in \{d.timeout.to_int()} ms\{seen}: " + (if why_not == "" { "settled only now" } else { why_not }))
+        let why = if why_not == "" { "settled only now" } else { why_not }
+        drive_fail(c, d, "the app did not settle in \{d.timeout.to_int()} ms\{seen}: " + why)
       } else if waited > 1000.0 && !d.told && why_not != "" {
         // (said once a step, for whoever reads the log: what a slow step waits on)
         d.told = true
@@ -807,6 +810,18 @@ fn drive_frame(c : Ctx) -> Unit {
         return
       }
     }
+  }
+  // the script's end, as `exit`: once settled (what the last steps set off is done, a call to the core answered), so
+  // the app does not end under it
+  if d.since < 0.0 {
+    d.since = now
+  }
+  if !calm {
+    if now - d.since > d.timeout {
+      let why = if why_not == "" { "settled only now" } else { why_not }
+      drive_fail(c, d, "the app did not settle in \{d.timeout.to_int()} ms: " + why)
+    }
+    return
   }
   drive_end(0)
 }

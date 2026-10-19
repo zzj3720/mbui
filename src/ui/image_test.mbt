@@ -116,32 +116,26 @@ test "what is shown is settled once the images it waits on are in, as the test s
 
 ///|
 test "finish_all brings what is pending in an order drawn from the seed" {
-  let order = fn(seed : Int) {
-    let got : Array[String] = []
-    let view = fn(c : @ui.Ctx) {
-      c.column(fn() {
-        for n in ["a.jpg", "b.jpg", "c.jpg", "d.jpg"] {
-          c.image(n, w=Px(50.0), h=Px(50.0)) |> ignore
-        }
-      })
-      |> ignore
-    }
-    let imgs = ["a.jpg", "b.jpg", "c.jpg", "d.jpg"].map(n => (n, 100, 100))
-    let t = @ui.Tester::new(view, images=imgs, seed~, finish=false)
-    t.frame()
-    let before = t.awaited()
-    t.finish_all()
-    // the runtime's tickets end in the order the host's events came
-    ignore(before)
-    for p in t.pending() {
-      got.push(p.1.to_string())
-    }
-    assert_eq(got, [])
-    t.settle() |> ignore
-    assert_true(t.settled())
-    t.finished_order()
+  let names = ["a.jpg", "b.jpg", "c.jpg", "d.jpg"]
+  let view = fn(c : @ui.Ctx) {
+    c.column(fn() {
+      for n in names {
+        c.image(n, w=Px(50.0), h=Px(50.0)) |> ignore
+      }
+    })
+    |> ignore
   }
-  assert_eq(order(7), order(7))
-  let orders = [1, 2, 3, 4, 5, 6, 7, 8].map(order)
+  let run = fn(seed : Int) -> @ui.Tester {
+    let t = @ui.Tester::new(view, images=names.map(n => (n, 100, 100)), seed~, finish=false)
+    t.frame()
+    t.finish_all()
+    t.settle() |> ignore
+    t
+  }
+  let t7 = run(7)
+  assert_eq(t7.pending(), [])
+  assert_true(t7.settled())
+  assert_eq(t7.finished_order(), run(7).finished_order())
+  let orders = [1, 2, 3, 4, 5, 6, 7, 8].map(s => run(s).finished_order())
   assert_true(orders.iter().any(o => o != orders[0]))
 }

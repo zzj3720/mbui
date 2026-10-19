@@ -122,6 +122,11 @@ jobs:
           done
           MBUI_BENCH=-1 MBUI_WIN=1440x900 MBUI_FIXTURE=chat MBUI_SCRIPT=shot MBUI_SHOT_NAME=win-wide-chat-1440 MBUI_SHOT_DIR="$D" ./$EXE
           MBUI_BENCH=-1 MBUI_WIN=390x844 MBUI_SCRIPT=shot MBUI_SHOT_NAME=win-phone-home MBUI_SHOT_DIR="$D" ./$EXE
+          # its web views (WebView2): a service's page the app answers, an HTML file previewed
+          for m in service chat-preview-html; do
+            MBUI_SHOT_SCREEN=1 MBUI_BENCH=-1 MBUI_WIN=1280x800 MBUI_FIXTURE=$m MBUI_SCRIPT=shot MBUI_SHOT_NAME=win-wide-$m \
+              MBUI_SHOT_DIR="$D" ./$EXE 2>&1 | tee out/shot-sf/win-wide-$m.log
+          done
           ls -la out/shot-sf
       - uses: actions/upload-artifact@v4
         if: always()

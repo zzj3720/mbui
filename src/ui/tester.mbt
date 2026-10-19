@@ -34,6 +34,7 @@ fn reset_globals() -> Unit {
   text_table.val = None
   image_cache.clear()
   outside_tickets.clear()
+  spin_reset()
   views_told.clear()
   pagers.clear()
   code_fields.clear()
@@ -289,12 +290,21 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
 
 ///|
 /// Draws frames until nothing asks for another (animations, scrolling and
-/// re-layouts have finished); returns how many it took.
-pub fn Tester::settle(self : Tester, max? : Int = 600) -> Int {
+/// re-layouts have finished); returns how many it took. Still asked for after
+/// `max`, or spinning idle (frames asked for with no input and nothing drawn
+/// changed, `spin_frames` in a row), the test fails, saying why and who asked
+/// (Ctx::unsettled); `unsettled_ok`: it goes on instead (a test of what runs on).
+pub fn Tester::settle(self : Tester, max? : Int = 600, unsettled_ok? : Bool = false) -> Int {
   let mut n = 0
   while n < max && (g().wants_frame || self.fake.wants) {
     self.frame()
     n = n + 1
+    if !unsettled_ok && spin_said() != "" {
+      abort("Tester::settle: not settled: " + g().unsettled())
+    }
+  }
+  if !unsettled_ok && n >= max && (g().wants_frame || self.fake.wants) {
+    abort("Tester::settle: not settled after \{max} frames: " + g().unsettled())
   }
   n
 }

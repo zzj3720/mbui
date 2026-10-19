@@ -4,6 +4,8 @@
 #   s   the stable toolchain (scripts/env.sh), --target native: moonc writes C, cc compiles it
 #   nn  the nightly toolchain, --target native
 #   nl  the nightly toolchain, --target llvm: moonc's link-core lowers the program through LLVM to an object
+#   sp  the stable toolchain's C split and compiled in parallel with ThinLTO (branch fast-release's scripts/mbc.py;
+#       FR=its checkout), for comparison: CFGS="s nn nl sp"
 # The nightly is its own install in NIGHTLY (default: lv-nightly/moon beside this checkout), never in place of the
 # stable one; each configuration builds into its own _build-<cfg>.
 #   scripts/llvm-spike.sh install                 the nightly into $NIGHTLY (the steps of the official install script,
@@ -36,10 +38,18 @@ use() {
     s) unset MBUI_MOON_HOME; export MBUI_TARGET=native ;;
     nn) export MBUI_MOON_HOME=$NIGHTLY MBUI_TARGET=native ;;
     nl) export MBUI_MOON_HOME=$NIGHTLY MBUI_TARGET=llvm ;;
-    *) echo "unknown configuration $1 (s, nn, nl)" >&2; exit 2 ;;
+    sp) unset MBUI_MOON_HOME; export MBUI_TARGET=native ;;
+    nlto) export MBUI_MOON_HOME=$NIGHTLY MBUI_TARGET=llvm ;;
+    *) echo "unknown configuration $1 (s, nn, nl, sp)" >&2; exit 2 ;;
   esac
   export MBUI_TARGET_DIR=_build-$1
   . "$D/env.sh"
+  if [ $1 = sp ]; then
+    # fast-release's split C (FR: a checkout of that branch; its scripts/mbc.py as the cc moon finds first, the C
+    # split by package, compiled in parallel, linked with ThinLTO), as its scripts/mac.sh builds
+    [ -f "${FR:-}/scripts/mbc.py" ] || { echo "llvm-spike: FR must be a checkout of fast-release" >&2; exit 2; }
+    export PATH="$(python3 "$FR/scripts/mbc.py" shim "$ROOT/out/mbc-sp/bin"):$PATH" MBC_GROUP=package MBC_LTO=thin
+  fi
 }
 
 install() {
@@ -80,16 +90,18 @@ timed() {  # CFG STEP ROUND PKG PROFILE: one build with the trace, one line in c
   local cfg=$1 st=$2 r=$3 pkg=$4 prof=$5
   (use $cfg
    flag=--release; [ "$prof" = debug ] && flag=
-   rm -f trace.json
+   rm -f trace.json $OUT/mbc.log
+   export MBC_LOG=$ROOT/$OUT/mbc.log
    l=$(load)
    t0=$(now)
    moon build $MOON_TARGET_FLAGS $flag src/$pkg --trace >$OUT/logs/$cfg-$prof-$st-$r.log 2>&1 && ok=1 || ok=0
    t1=$(now)
    exe=$MBUI_OUT/$prof/build/$pkg/$pkg.exe
+   mbc=$(grep -E ' in [0-9.]+ s' $OUT/mbc.log 2>/dev/null | tr '\n' ';' | tr '"' "'" || true)
    size=$(stat -f %z $exe 2>/dev/null || echo 0)
    text=$(size $exe 2>/dev/null | awk 'NR==2{print $1}')
-   python3 "$D/llvm_trace.py" trace.json cfg=$cfg step=$st round=$r pkg=$pkg profile=$prof ok=$ok \
-     wall_s=$(python3 -c "print(round($t1-$t0,3))") exe_bytes=$size text_bytes=${text:-0} "load=$l" >>$OUT/compile.jsonl)
+   LV_CMDS=$OUT/logs/$cfg-$prof-$st-$r.cmds python3 "$D/llvm_trace.py" trace.json cfg=$cfg step=$st round=$r pkg=$pkg profile=$prof ok=$ok \
+     wall_s=$(python3 -c "print(round($t1-$t0,3))") exe_bytes=$size text_bytes=${text:-0} "load=$l" "mbc=$mbc" >>$OUT/compile.jsonl)
 }
 
 compile() {  # [ROUNDS] [PKG] [debug]
@@ -117,9 +129,36 @@ compile() {  # [ROUNDS] [PKG] [debug]
   restore
 }
 
+# nlto (an experiment, bench only): the llvm build's program as LLVM bitcode (-emit-llvm-ir), the runtime's C compiled
+# to bitcode too, and the two linked with ThinLTO, so the runtime's moonbit_incref/decref & co., which the LLVM
+# backend calls (the C backend has them inline from moonbit.h), can be inlined again -> out/lv/nlto/bench.exe
+nlto_build() {
+  (use nlto
+   L=$ROOT/$OUT/nlto; rm -rf $L; mkdir -p $L
+   moon build $MOON_TARGET_FLAGS --release src/bench >$OUT/logs/nlto-build.log 2>&1
+   cross_obj bench arm64-apple-macosx $L/bench.bc -emit-llvm-ir
+   for f in runtime env utf sync_io backtrace; do
+     cc -I$MOON_HOME/include -O2 -flto=thin -fwrapv -fno-strict-aliasing -Wno-unused-value -DMOONBIT_USE_SIMDUTF \
+       -DMOONBIT_ALLOCATOR=MOONBIT_ALLOCATOR_MIMALLOC -c $MOON_HOME/lib/runtime/$f.c -o $L/rt_$f.o
+   done
+   link=$(moon build $MOON_TARGET_FLAGS --release src/bench --dry-run 2>/dev/null | grep -E '^/usr/bin/cc -o [^ ]+bench[.]exe' | head -1)
+   link=$(echo "$link" | sed -e "s|\\\$MOON_HOME|$MOON_HOME|g" -e "s| -o [^ ]*| -o $L/bench.exe|" \
+     -e "s| [^ ]*/bench/bench\.o| $L/bench.bc|" -e "s|\( [^ ]*/libruntime\.a\)| $(echo $L/rt_*.o)\1|")
+   eval "$link -flto=thin"
+   echo "nlto bench.exe $(stat -f %z $L/bench.exe) bytes")
+}
+
+bench_exe() {  # CFG: its bench program
+  [ $1 = nlto ] && echo $OUT/nlto/bench.exe || echo _build-$1/$( [ $1 = nl ] && echo llvm || echo native)/release/build/bench/bench.exe
+}
+
 bench() {  # [ROUNDS]
   local rounds=${1:-3}
-  for cfg in $CFGS; do build $cfg bench >$OUT/logs/bench-build-$cfg.log 2>&1 || { tail -20 $OUT/logs/bench-build-$cfg.log; exit 1; }; done
+  for cfg in $CFGS; do
+    if [ $cfg = nlto ]; then nlto_build >$OUT/logs/bench-build-$cfg.log 2>&1 || { tail -20 $OUT/logs/bench-build-$cfg.log; exit 1; }
+    else build $cfg bench >$OUT/logs/bench-build-$cfg.log 2>&1 || { tail -20 $OUT/logs/bench-build-$cfg.log; exit 1; }; fi
+    echo "bench $cfg: $(stat -f %z $(bench_exe $cfg)) bytes"
+  done
   for r in $(seq 1 $rounds); do
     order=$(echo $CFGS | tr ' ' '\n' | python3 -c "import sys;l=sys.stdin.read().split();k=$r%len(l);print(' '.join(l[k:]+l[:k]))")
     for cfg in $order; do
@@ -127,7 +166,7 @@ bench() {  # [ROUNDS]
        l=$(load)
        rm -f $OUT/bench-one.jsonl
        BENCH_LABEL="$cfg" BENCH_SCENES="${SCENES:-}" BENCH_FRAMES="${FRAMES:-}" BENCH_REPEAT="${REPEAT:-}" \
-         BENCH_HISTORY=$OUT/bench-one.jsonl ./$MBUI_OUT/release/build/bench/bench.exe >$OUT/logs/bench-$cfg-$r.log 2>&1
+         BENCH_HISTORY=$OUT/bench-one.jsonl ./$(bench_exe $cfg) >$OUT/logs/bench-$cfg-$r.log 2>&1
        python3 -c "
 import json,sys
 d=json.loads(open('$OUT/bench-one.jsonl').read().strip().splitlines()[-1])
@@ -155,7 +194,7 @@ if c:
             print("| step | cfg | n | " + " | ".join(cols) + " | exe bytes |")
             print("|" + "---|" * (len(cols) + 4))
             for s in steps:
-                for cfg in ["s", "nn", "nl"]:
+                for cfg in ["s", "nn", "nl", "sp", "nlto"]:
                     xs = [x for x in c if x["step"] == s and x["cfg"] == cfg and x["pkg"] == pkg and x["profile"] == prof]
                     if not xs: continue
                     med = lambda k: st.median([float(x.get(k, 0)) for x in xs])
@@ -173,7 +212,7 @@ if b:
     print("| scene | cfg | runs | " + " | ".join(keys) + " |")
     print("|" + "---|" * (len(keys) + 3))
     for s in scenes:
-        for cfg in ["s", "nn", "nl"]:
+        for cfg in ["s", "nn", "nl", "sp", "nlto"]:
             rs = [r for x in b if x["cfg"] == cfg for r in x["results"] if r["scene"] == s]
             if not rs: continue
             print(f"| {s} | {cfg} | {len(rs)} | " + " | ".join(f"{st.median([r[k] for r in rs]):.3f}" for k in keys) + " |")
@@ -253,10 +292,13 @@ ios_sim() {
   [ "${RUN:-0}" = 1 ] || return 0
   rt=$(xcrun simctl list runtimes -j | python3 -c "import json,sys;r=[x for x in json.load(sys.stdin)['runtimes'] if x['platform']=='iOS' and x['isAvailable']];print(r[-1]['identifier'])")
   dt=$(xcrun simctl list devicetypes -j | python3 -c "import json,sys;t=[x for x in json.load(sys.stdin)['devicetypes'] if x['name'].startswith('iPhone 1') and 'Pro' in x['name'] and 'Max' not in x['name']];print(t[-1]['identifier'])")
-  id=$(xcrun simctl create lv-iphone "$dt" "$rt")
+  id=$(xcrun simctl list devices | sed -n 's/^ *lv-iphone (\([0-9A-F-]*\)).*/\1/p' | head -1)
+  [ -n "$id" ] || id=$(xcrun simctl create lv-iphone "$dt" "$rt")
   echo "simulator lv-iphone $id ($dt, $rt)"
-  xcrun simctl boot $id
-  xcrun simctl bootstatus $id -b >/dev/null
+  xcrun simctl boot $id 2>/dev/null || true
+  # (not `simctl bootstatus -b`: on a loaded machine it waited 18 min on a simulator already up)
+  for i in $(seq 1 120); do xcrun simctl list devices | grep -q "$id) (Booted)" && break; sleep 2; done
+  sleep 20
   xcrun simctl install $id $I/MBUI.app
   mkdir -p $ROOT/$I/shots
   SIMCTL_CHILD_MBUI_SCRIPT=shot SIMCTL_CHILD_MBUI_BENCH=-1 SIMCTL_CHILD_MBUI_SHOT_DIR=$ROOT/$I/shots \
@@ -266,11 +308,94 @@ ios_sim() {
   ls -la $I/shots
   xcrun simctl shutdown $id || true
   xcrun simctl delete $id
-  [ -f $I/shots/main.png ] && NODE_PATH=$ROOT/out/node/node_modules node scripts/imgdiff.mjs goldens/ios.png $I/shots/main.png $I/shots/main-review.png || true
+  node_deps
+  [ -f $I/shots/main.png ] && node scripts/imgdiff.mjs goldens/ios.png $I/shots/main.png $I/shots/main-review.png || true
+}
+
+node_deps() {
+  [ -d out/node/node_modules/pixelmatch ] || (mkdir -p out/node && cd out/node && { [ -f package.json ] || npm init -y >/dev/null; } && npm i pngjs pixelmatch >/dev/null 2>&1)
+}
+
+# Android on an emulator of our own (AVD lv-avd on EMU_PORT, default 5606: never one another run has up; it stops
+# when that port is taken, and checks the emulator it got is lv-avd): the demo's APK as scripts/android.sh
+# builds it (the stable toolchain's C), then the same APK with `android`'s llvm libmbui.so in its place; each one's
+# screen (the way scripts/shots.sh takes goldens/android.png) -> out/lv/android/shot-{c,llvm}.png. The AVD is deleted.
+android_run() {
+  local A=$OUT/android SDK=${ANDROID_HOME:-$HOME/Library/Android/sdk}
+  local ADB=$SDK/platform-tools/adb port=${EMU_PORT:-5606} so=android/app/src/main/jniLibs/arm64-v8a/libmbui.so
+  [ -f $A/libmbui.so ] || { echo "llvm-spike: run android first" >&2; exit 1; }
+  export ANDROID_HOME=$SDK
+  [ -x /usr/libexec/java_home ] && export JAVA_HOME=$(/usr/libexec/java_home -v 20 2>/dev/null || /usr/libexec/java_home)
+  if $ADB devices | grep -q "^emulator-$port"; then echo "llvm-spike: emulator-$port is someone else's; EMU_PORT=…" >&2; exit 1; fi
+  cp -p $A/libmbui.so $A/libmbui-llvm.so
+  APP=demo bash "$D/android.sh" build | tail -3
+  cp -p $so $A/libmbui-c.so
+  cp -p android/app/build/outputs/apk/debug/app-debug.apk $A/app-c.apk
+  cp -p $A/libmbui-llvm.so $so
+  rm -f android/app/build/outputs/apk/debug/app-debug.apk
+  (cd android && ./gradlew --no-daemon -q assembleDebug >../$A/gradle-llvm.log 2>&1) || { grep -E 'error|What went wrong' -A4 $A/gradle-llvm.log | head -30; cp -p $A/libmbui-c.so $so; exit 1; }
+  cp -p android/app/build/outputs/apk/debug/app-debug.apk $A/app-llvm.apk
+  cp -p $A/libmbui-c.so $so
+  echo "libmbui.so: C $(stat -f %z $A/libmbui-c.so) bytes, llvm $(stat -f %z $A/libmbui-llvm.so) bytes"
+  AVD=lv-avd EMU_PORT=$port bash "$D/android.sh" emu
+  local S="$ADB -s emulator-$port"
+  [ "$($S emu avd name 2>/dev/null | head -1 | tr -d '\r')" = lv-avd ] || { echo "llvm-spike: emulator-$port is not lv-avd" >&2; exit 1; }
+  $S shell settings put global sysui_demo_allowed 1
+  $S shell am broadcast -a com.android.systemui.demo -e command enter >/dev/null
+  $S shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200 >/dev/null
+  $S shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false >/dev/null
+  node_deps
+  for v in c llvm; do
+    $S install -r $A/app-$v.apk >/dev/null
+    $S shell am force-stop dev.mbui.demo
+    $S logcat -c
+    $S shell am start -n dev.mbui.demo/dev.mbui.MainActivity --ei bench -1 >/dev/null
+    sleep 8
+    $S exec-out screencap -p > $A/shot-$v.png
+    $S logcat -d -s mbui:* AndroidRuntime:E DEBUG:* libc:F > $A/logcat-$v.txt 2>&1 || true
+    echo "$v: pid $($S shell pidof dev.mbui.demo | tr -d '\r'), $(grep -c -E 'FATAL|SIGSEGV|SIGABRT' $A/logcat-$v.txt) crash lines"
+    node scripts/imgdiff.mjs goldens/android.png $A/shot-$v.png $A/shot-$v-review.png || true
+  done
+  node scripts/imgdiff.mjs $A/shot-c.png $A/shot-llvm.png $A/shot-c-vs-llvm.png || true
+  $S emu kill || true
+  sleep 5
+  $(ls -d $SDK/cmdline-tools/*/bin | tail -1)/avdmanager delete avd -n lv-avd || true
+}
+
+# scripts/shots.sh's macOS pages (PLATFORMS: mac home chat composer …) built by s and by nl, each against goldens/ and
+# the two against each other (out/lv/shots-{s,nl}); then still.fail itself (src/stillfail) started by each, signed out,
+# with no cloud it can reach (MBUI_CLOUD on a closed port: nothing leaves the machine), its first page at frame 120.
+app_shots() {
+  node_deps
+  for cfg in s nl; do
+    rm -f out/shots/*.png
+    (use $cfg; bash "$D/shots.sh" "$@" >$OUT/shots-$cfg.txt 2>&1 || true)
+    rm -rf $OUT/shots-$cfg; mkdir -p $OUT/shots-$cfg
+    for f in out/shots/*.png; do case $f in *-review.png) ;; *) cp -p $f $OUT/shots-$cfg/ ;; esac; done
+    echo "$cfg against goldens/:"; grep 'px differ' $OUT/shots-$cfg.txt | sed 's/^/  /'
+  done
+  echo "nl against s:"
+  for f in $OUT/shots-s/*.png; do
+    node scripts/imgdiff.mjs $f $OUT/shots-nl/$(basename $f) $OUT/shots-nl/$(basename $f .png)-vs-s.png | sed 's/^/  /' || true
+  done
+  mkdir -p $OUT/app
+  for cfg in s nl; do
+    (use $cfg
+     moon build $MOON_TARGET_FLAGS --release src/stillfail >$OUT/logs/app-build-$cfg.log 2>&1
+     d=$(mktemp -d)
+     MBUI_CLOUD=http://127.0.0.1:9 MBUI_CORE_DATA=$d MBUI_KEYS_IN_FILES=1 MBUI_WIN=390x844 MBUI_SCRIPT=shot MBUI_SHOT_AT=120 \
+       MBUI_SHOT_NAME=stillfail-$cfg MBUI_SHOT_DIR=$ROOT/$OUT/app MB_CORE_BUNDLE=$ROOT/out/core/core.js \
+       perl -e 'alarm shift; exec @ARGV' 90 ./$MBUI_OUT/release/build/stillfail/stillfail.exe >$OUT/app/stillfail-$cfg.log 2>&1
+     echo "stillfail ($cfg): exit $?, $(ls $OUT/app/stillfail-$cfg.png 2>/dev/null || echo 'no shot')"
+     rm -rf $d)
+  done
+  node scripts/imgdiff.mjs $OUT/app/stillfail-s.png $OUT/app/stillfail-nl.png $OUT/app/stillfail-nl-vs-s.png || true
 }
 
 case "${1:-}" in
   install) install ;;
+  app-shots) shift; app_shots "$@" ;;
+  android-run) android_run ;;
   cross) cross_obj "$2" "$3" "$4" "${@:5}" ;;
   android) android ;;
   ios-sim) ios_sim ;;
@@ -278,6 +403,7 @@ case "${1:-}" in
   build) build "$2" "$3" "${4:-}" ;;
   compile) compile "${2:-3}" "${3:-stillfail}" "${4:-release}" ;;
   bench) bench "${2:-3}" ;;
+  nlto) nlto_build ;;
   report) report ;;
   *) sed -n 2,30p "$0"; exit 2 ;;
 esac

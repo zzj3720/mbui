@@ -18,7 +18,8 @@ sys.dont_write_bytecode = True
 import detlint  # noqa: E402
 
 CONF = {
-    "mbt": {"roots": ["src"], "framework": ["src/ui", "src/host"], "clock_sources": ["src/host"]},
+    "mbt": {"roots": ["src"], "framework": ["src/ui", "src/host"], "clock_sources": ["src/host"],
+            "frame_core": ["src/ui/app.mbt", "src/host"]},
     "globals": {"roots": ["src/app"]},
     "flows": ["flows/*.drive"],
     "scripts": ["scripts/*.sh", "scripts/*.mjs"],
@@ -73,8 +74,12 @@ class Rules(unittest.TestCase):
             }
             """}
         found(self, bad, "frame-request", 2)
+        # the framework's own components and motion count too: an animation is declared once, not asked each frame
+        found(self, {"src/ui/list.mbt": "fn fling(c : Ctx) -> Unit {\n  if moving { c.request_frame() }\n"
+                                        "  h_request_frame()\n}\n"}, "frame-request", 2)
         good = {
-            # the framework asks; a test may; a comment or a string naming it is not a call
+            # the scheduler asks (its frame loop, its dispatch); a test may; a comment or a string naming it is not
+            # a call
             "src/ui/app.mbt": "fn on_key(c : Ctx) -> Unit {\n  c.request_frame()\n}\n",
             "src/app/view_test.mbt": "test \"x\" {\n  c.request_frame()\n}\n",
             "src/app/view.mbt": "// c.request_frame() was here\nfn v(c : @ui.Ctx) -> Unit {\n  c.text(\"request_frame()\")\n}\n",
@@ -306,6 +311,19 @@ class Exceptions(unittest.TestCase):
             self.assertEqual(len(t.excused()), 2)
             left = t.findings("frame-request")
             self.assertEqual(len(left), 1, "an exception without its reason is not taken")
+        finally:
+            t.close()
+
+    def test_exceptions_have_a_bar_of_their_own(self):
+        t = Tree({"src/app/view.mbt": "fn v(c : @ui.Ctx) -> Unit {\n  c.request_frame() // det-ok(frame-request): a\n}\n"})
+        try:
+            self.assertEqual(Bar.run_main(None, t, "--update")[0], 0)
+            self.assertEqual(Bar.run_main(None, t)[0], 0)
+            with open(os.path.join(t.root, "src/app/view.mbt"), "a", encoding="utf-8") as fh:
+                fh.write("fn w(c : @ui.Ctx) -> Unit {\n  c.request_frame() // det-ok(frame-request): b\n}\n")
+            code, out = Bar.run_main(None, t)
+            self.assertEqual(code, 1, out)
+            self.assertIn("an exception more", out)
         finally:
             t.close()
 

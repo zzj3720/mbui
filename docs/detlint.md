@@ -16,9 +16,10 @@ It runs first in `scripts/check.sh` and in CI's test job. still.fail's `apps/mbu
 
 ## The bar
 
-`detlint.json` keeps each rule's findings, counted by file (`counts`). More than the bar fails, naming the files
-that grew and their lines. Fewer fails too, until `--update` lowers the bar in the same commit: what a migration
-moved off cannot come back. A rule at 0 is forbidden outright; once a migration reaches 0 nothing else is needed.
+`detlint.json` keeps each rule's findings, counted by file (`counts`), and its exceptions the same way (`excused`).
+More than either bar fails, naming the files that grew and their lines. Fewer fails too, until `--update` lowers it
+in the same commit: what a migration moved off cannot come back, nor come back as an exception. A rule at 0 on both
+is forbidden outright; once a migration reaches 0 nothing else is needed.
 
 ## Exceptions
 
@@ -28,13 +29,13 @@ On the line, or the line over it, with the reason:
     # det-ok(script-wait): the emulator's boot has nothing to wait for but its property
 
 Several rules: `det-ok(poll, frame-request): …`. One without a reason is not taken. The report prints every
-exception with its reason, and they do not count towards the bar.
+exception with its reason; they have a bar of their own (above), so an exception more fails as a finding more does.
 
 ## The rules
 
 | rule | stops | instead |
 |---|---|---|
-| `frame-request` | the app (not `src/ui`, `src/host`, `src/motion`, `src/effect`) calls `Ctx::request_frame`, `@host.request_frame`, `@ui.request_frame` | nothing: the framework frames inputs, events, animations to their deadline, layout reads |
+| `frame-request` | anything but the scheduler itself calls `Ctx::request_frame`, `@host.request_frame`, `@ui.request_frame`, `h_request_frame`: the app, and the framework's components, lists, scrolling, pages, overlays, nav, fx and motion too. The scheduler (`mbt.frame_core`): in mbui `src/ui/app.mbt` (the frame loop, the dispatch of inputs and events), `src/ui/ctx.mbt` (`request_frame`, `wake_*` themselves), `src/ui/hostcall.mbt`, `src/ui/hostread.mbt` (the host's bridge), `src/host`; in still.fail `src/host` | nothing: the framework frames inputs and events; an animation is data, declared once with its start and end |
 | `settle` | `Tester::settle` / `settled`, `Ctx::settled`, `Runtime::settle` / `settled`, anywhere (tests, the Tester's own `tap`…, the driver), but in their own definitions | `run_for(<a declared time>)`, `finish(<that ticket>)`; `assert_idle()` at the end |
 | `flow-wait` | `wait N`, `linger N` in an end-to-end flow | `until`, and the named events (`answered`, `ready`, `decoded`) |
 | `script-wait` | `sleep N`, `MBUI_SHOT_AT=N`, `setTimeout(…, N)`, `waitForTimeout(…)`, `time.sleep(…)` in test and screenshot scripts | wait for the file, the log line, the event; a picture at a time its animations declare |

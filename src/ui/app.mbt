@@ -90,6 +90,10 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
     let what = if settled { "" } else { c.unsettled() }
     @host.frame_settled(settled, n, what)
   }
+  // a motion said, not at its end; a cycle shown (motion_data.mbt)
+  if c.motion_owed() || c.cycling {
+    c.wants_frame = true
+  }
   if c.wants_frame || bench.mode > 0 {
     h_request_frame()
   } else if c.wake_at > 0.0 {
@@ -140,6 +144,7 @@ fn frame_body(c : Ctx, w : Double, h : Double, scale : Double, t : Double) -> Do
   c.wake_waited = -1.0
   c.frame_by = None
   c.wake_by = None
+  c.cycling = false
   check_atlas()
   if bench.mode > 0 && c.bench_list != 0 && bench.frames >= 30 {
     c.scroll_list(c.bench_list, bench.speed)

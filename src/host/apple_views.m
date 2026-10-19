@@ -536,6 +536,7 @@ static void fill_info(AVAssetResourceLoadingRequest *req, NSString *uti, long lo
   self.observing = NO;
   [self.item removeObserver:self forKeyPath:@"status" context:kStatus];
   [self.playerLayer removeObserver:self forKeyPath:@"readyForDisplay" context:kReady];
+  [self.player removeObserver:self forKeyPath:@"timeControlStatus" context:kStatus];
 }
 
 // The frame showing now, for snapshots (the last one copied when no new one came); retained, or NULL.
@@ -719,6 +720,9 @@ static MBNative *open_video(int32_t vid, NSString *mime) {
   v.content = pv;
   [v.item addObserver:v forKeyPath:@"status" options:0 context:kStatus];
   [v.playerLayer addObserver:v forKeyPath:@"readyForDisplay" options:0 context:kReady];
+  // playing, waiting for what it needs, paused: a frame as that changes (the app draws a playing one's time; one that
+  // waits moves on its own no more until this says so)
+  [v.player addObserver:v forKeyPath:@"timeControlStatus" options:0 context:kStatus];
   v.observing = YES;
   vlog(@"view %d: open video (%@, %@)", vid, mime, v.uti);
   return v;

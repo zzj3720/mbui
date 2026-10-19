@@ -518,8 +518,9 @@ fn Ctx::sync_views(self : Ctx) -> Unit {
     }
     let before = v.state
     v.state = h_view_info(v.id, v.info)
-    if v.state != before || v.playing() {
-      // a player playing moves on its own: its time is shown
+    if v.state != before || (v.playing() && !v.buffering()) {
+      // a player playing moves on its own: its time is shown (not while it waits for what it needs: the host asks
+      // for a frame as it goes on)
       self.request_frame()
     }
     match v.serve {

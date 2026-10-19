@@ -50,35 +50,23 @@ for rt,ds in d.items():
     id=$(xcrun simctl create "$DEV_NAME" "$dt" "$rt")
   fi
   xcrun simctl boot "$id" 2>/dev/null || true
-  # until it has booted (`simctl bootstatus`, looked at for a few seconds at a time). A fresh simulator's data
-  # migration can hang on the address book's plugin (AddressBookLegacy.migrator, idle, seen on iOS 26.4 on a loaded
-  # Mac for a quarter of an hour, apps launched meanwhile never answering): after a minute of it, that plugin's
-  # wrapper (a process of this simulator's launchd_sim) is ended, and the migration goes on without it.
-  local t0=$(date +%s) ab=0 s pid
+  # until it has booted (`simctl bootstatus`). A fresh simulator's first boot runs its data migration (the address
+  # book's plugin can sit idle in it for many minutes on a loaded Mac): it is left to finish by itself, as ending it
+  # left SpringBoard launching no app at all (not even Settings). MBUI_IOS_BOOT_WAIT: how long to wait (s, default 40 min).
   local st=$(mktemp -t mbui-bootstatus)
-  while :; do
-    xcrun simctl bootstatus "$id" >"$st" 2>&1 &
-    pid=$!
-    sleep 4
-    local ended=1
-    kill $pid 2>/dev/null && ended=0
-    wait $pid 2>/dev/null || true
-    s=$(tail -4 "$st")
-    case "$s" in
-      *isTerminal=YES* | *Finished* | *"already booted"*) break ;;
-      *addressbook.migrator*)
-        ab=$((ab + 1))
-        if [ $ab -ge 12 ]; then
-          local sim=$(pgrep -f "CoreSimulator/Devices/$id/data/var/run/launchd_bootstrap.plist" | head -1)
-          [ -n "$sim" ] && pkill -P "$sim" -f com.apple.migrationpluginwrapper && echo "ios.sh: the address book's migration ended (it hung)" >&2
-          ab=0
-        fi
-        ;;
-    esac
-    # (a bootstatus that ended by itself: the boot is over)
-    [ $ended = 1 ] && break
-    [ $(($(date +%s) - t0)) -gt 900 ] && { rm -f "$st"; echo "ios.sh: $DEV_NAME did not boot: $s" >&2; return 1; }
+  xcrun simctl bootstatus "$id" >"$st" 2>&1 &
+  local pid=$! t0=$(date +%s)
+  while kill -0 $pid 2>/dev/null; do
+    if [ $(($(date +%s) - t0)) -gt ${MBUI_IOS_BOOT_WAIT:-2400} ]; then
+      kill $pid 2>/dev/null
+      echo "ios.sh: $DEV_NAME did not boot: $(tail -2 "$st")" >&2
+      rm -f "$st"
+      return 1
+    fi
+    sleep 5
   done
+  wait $pid 2>/dev/null || true
+  echo "ios.sh: $DEV_NAME booted in $(($(date +%s) - t0)) s" >&2
   rm -f "$st"
   echo "$id"
 }

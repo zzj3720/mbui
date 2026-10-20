@@ -244,13 +244,14 @@ test "desktop: words of a selectable paragraph are picked by a drag and copied; 
 
 ///|
 /// A list eased in by a wheel's notch of 120 at its start (desktop: the mouse's wheel).
-fn notched() -> @ui.Tester {
+fn notched(rest? : Ref[Double] = Ref(0.0)) -> @ui.Tester {
   let t = @ui.Tester::new(
     fn(c) {
       c.list("l", 100, 40.0, fn(i) {
         c.box(h=Px(40.0), fn() { c.text("row \{i}", wrap=false) |> ignore }) |> ignore
       })
       |> ignore
+      rest.val = c.list_rest("l")
     },
     w=300.0,
     h=400.0,
@@ -267,7 +268,8 @@ test "a wheel's ease is solved for the time: in frames of 16 ms, of 8, or at onc
   let short_frame = @ui.drag_step_ms / 2.0
   let sixteen = notched()
   let eight = notched()
-  let once = notched()
+  let rest = Ref(0.0)
+  let once = notched(rest~)
   let start = sixteen.time()
   while sixteen.time() + long_frame <= start + at {
     sixteen.frame(ms=long_frame)
@@ -281,4 +283,11 @@ test "a wheel's ease is solved for the time: in frames of 16 ms, of 8, or at onc
   assert_true(once.list_offset() > 0.0 && once.list_offset() < 120.0)
   assert_eq(sixteen.list_offset(), once.list_offset())
   assert_eq(eight.list_offset(), once.list_offset())
+  // its scroll bar shows while it moves and after, then fades: what moves until it is gone (the list's own rest), then
+  // nothing
+  // (its end goes on while the ease scrolls it: run to it until it is where it is)
+  while rest.val > once.time() {
+    once.run_for(rest.val - once.time())
+  }
+  once.assert_idle()
 }

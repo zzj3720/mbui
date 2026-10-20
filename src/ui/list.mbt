@@ -105,7 +105,7 @@ fn Ctx::scroll_list(self : Ctx, id : Int, d : Double) -> Unit {
   match self.lists.get(id) {
     Some(st) => {
       st.pending = st.pending + d
-      st.last_scroll = self.now
+      self.scrolled(st)
       st.glide = false
     }
     None => ()
@@ -126,9 +126,8 @@ fn Ctx::ease_list(self : Ctx, id : Int, d : Double) -> Unit {
       st.ease = st.ease - st.ease_done + d
       st.ease_done = 0.0
       st.ease_t0 = self.now
-      st.last_scroll = self.now
+      self.scrolled(st)
       st.glide = false
-      self.moving(st.ease_mover, st as &Moving)
     }
     None => ()
   }
@@ -156,14 +155,40 @@ fn ease_end(total : Double) -> Double {
 }
 
 ///|
-/// A wheel's ease is what moves of a list: at rest at its end.
+/// How long a list's scroll bar shows after it was last scrolled (ms), then how long it fades out.
+pub let scrollbar_hold_ms : Double = 600.0
+
+///|
+pub let scrollbar_fade_ms : Double = 300.0
+
+///|
+/// When list `key` (asked where it is built) is at rest: its wheel's ease come and its scroll bar gone (the frames'
+/// clock; before now: it is).
+pub fn Ctx::list_rest(self : Ctx, key : String) -> Double {
+  match self.lists.get(self.id(key)) {
+    Some(st) => st.rest_at(self.now, self.frame_no)
+    None => -1.0
+  }
+}
+
+///|
+/// List `st` scrolled now: its scroll bar shows (and then fades) from now, said as what moves.
+fn Ctx::scrolled(self : Ctx, st : ListState) -> Unit {
+  st.last_scroll = self.now
+  self.moving(st.ease_mover, st as &Moving)
+}
+
+///|
+/// What moves of a list by itself: a wheel's ease (at rest at its end) and its scroll bar (gone once faded).
 impl Moving for ListState with rest_at(self, now, frame) {
   ignore(now)
   ignore(frame)
-  if self.ease == 0.0 {
-    -1.0
+  let bar = self.last_scroll + scrollbar_hold_ms + scrollbar_fade_ms
+  let eased = if self.ease == 0.0 { -1.0 } else { self.ease_t0 + ease_end(self.ease) }
+  if bar > eased {
+    bar
   } else {
-    self.ease_t0 + ease_end(self.ease)
+    eased
   }
 }
 
@@ -177,7 +202,7 @@ fn Ctx::step_ease(self : Ctx, st : ListState) -> Unit {
   let came = ease_come(st.ease, self.now - st.ease_t0)
   st.pending = st.pending + (came - st.ease_done)
   st.ease_done = came
-  st.last_scroll = self.now
+  self.scrolled(st)
   if came == st.ease {
     st.ease = 0.0
     st.ease_done = 0.0
@@ -205,7 +230,7 @@ fn Ctx::list_key(self : Ctx, id : Int, code : Int) -> Bool {
       } else {
         return false
       }
-      st.last_scroll = self.now
+      self.scrolled(st)
       true
     }
     None => false
@@ -308,9 +333,6 @@ pub fn Ctx::list(
   n.h = h
   n.clip = true
   n.bg = bg
-  if self.now - st.last_scroll < 900.0 {
-    self.wake_at_time(st.last_scroll + 900.0)
-  }
   i
 }
 
@@ -579,10 +601,10 @@ fn Ctx::paint_scrollbar(self : Ctx, n : Node, alpha : Double) -> Unit {
   match self.lists.get(n.id) {
     Some(st) => {
       let age = self.now - st.last_scroll
-      if age > 900.0 || st.count == 0 {
+      if age > scrollbar_hold_ms + scrollbar_fade_ms || st.count == 0 {
         return
       }
-      let fade = if age < 600.0 { 1.0 } else { 1.0 - (age - 600.0) / 300.0 }
+      let fade = if age < scrollbar_hold_ms { 1.0 } else { 1.0 - (age - scrollbar_hold_ms) / scrollbar_fade_ms }
       let total = st.above(st.count)
       let before = st.above(imin(st.anchor, st.count))
       let vp = n.fh

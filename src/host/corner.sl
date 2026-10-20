@@ -16,29 +16,12 @@ float mb_smoothness(float r, float room) {
 // the one or outside the other the round distance has its sign and is as far, which is all a cover, an edge band
 // wide or a shadow that blurred says of it.
 float mb_sd_corner(float2 p, float2 hs, float r, float s, float band) {
-  float R = min(r * (1.0 + 0.25 * s), min(hs.x, hs.y));
-  float2 q = abs(p) - hs + R;
-  float2 m = max(q, 0.0);
-  float l = length(m);
-  if (s <= 0.0 || min(m.x, m.y) <= 0.0 || l <= R - band || l >= 1.107 * R + band) return l + min(max(q.x, q.y), 0.0) - R;
-  float hi = max(m.x, m.y);
-  float t = min(m.x, m.y) / hi;
-  if (s >= 1.0) {
-    // wholly smooth (nearly every corner): the two factors below as polynomials in t (least squares over [0, 1], within
-    // 2e-5 of them: a hundredth of a pixel over a radius of 200), no power
-    float A = 1.0000098 + t * (-0.00106380035 + t * (0.0390446602 + t * (1.21491043 + t * (-1.49650831 + t * (1.90947795 + t * (-2.77580972 + t * (2.11536546 + t * -0.591224537)))))));
-    float B = 1.00001404 + t * (-0.00136262193 + t * (0.039570688 + t * (0.648050719 + t * (-0.725922772 + t * (0.327888394 + t * (-0.914717465 + t * (1.13728689 + t * -0.403984265)))))));
-    return hi * A - R * B;
-  }
-  float n = 2.0 + 0.8284271247461903 * s;
-  float tn1 = pow(t, n - 1.0);
-  float tn = tn1 * t;
-  float u = pow(1.0 + tn, 1.0 / n);
-  return (hi * u - R) * (1.0 + tn) / (u * sqrt(1.0 + tn1 * tn1));
+  float2 q = abs(p) - hs + r;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
 // A box's own corners: r at most its shorter half, as smooth as its size has room for (band: mb_sd_corner's).
 float mb_sd_box(float2 p, float2 hs, float r, float band) {
-  float room = min(hs.x, hs.y);
-  float rr = min(r, room);
-  return mb_sd_corner(p, hs, rr, mb_smoothness(rr, room), band);
+  float rr = min(r, min(hs.x, hs.y));
+  float2 q = abs(p) - hs + rr;
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rr;
 }

@@ -127,7 +127,8 @@ case $CMD in
     rm -f $O/booted-here ;;
   record)
     # a NAME given: a run to commit (listed in textrec_runs.txt); else this run's own ci_HOST, never listed
-    KEEP=$([ -n "${NAME:-}" ] && echo --keep)
+    KEEP=
+    if [ -n "${NAME:-}" ]; then KEEP=--keep; fi
     NAME=${NAME:-ci_$H}
     run "$REC" $O/run.log || true
     grep -q "DRIVE PASS" $O/run.log || { echo "host_contract: the run did not pass its script"; grep -a "DRIVE" $O/run.log | tail -5; exit 1; }

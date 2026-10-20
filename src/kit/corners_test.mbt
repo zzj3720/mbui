@@ -90,3 +90,18 @@ test "corners: a fault names what breaks the rule by its words and place" {
   assert_true(faults.length() > 0)
   assert_true(faults[0].contains("「Send」"))
 }
+
+///|
+test "corners: what lies flush in the corner of what cuts it has the container's corner" {
+  let t = @ui.Tester::new(fn(c) {
+    c.column(pad=20.0, fn() {
+      c.box(dir=Row, w=Px(80.0), h=Px(20.0), bg=0xEEEEEEFFL, radius=10.0, clip=true, fn() {
+        c.box(w=Px(30.0), h=Fill(1.0), bg=0x3366FFFFL, fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  })
+  t.draw()
+  assert_eq(t.corner_faults(), [])
+}

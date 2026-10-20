@@ -156,24 +156,43 @@ case $CMD in
     esac ;;
   free)
     # (iOS) the simulator others use too (still.fail's iOS smoke, mbui-ios.yml; the iOS host's own runs): taken by its
-    # lock, the same as theirs (a directory made at once, `mkdir`: its owner said in it; one an hour old is left over
-    # and taken over). Held by another, this fails, waiting on nothing. Then, booted with an app running that took no
-    # lock (a run by hand), it is that one's and this fails too; shut down, these runs boot it (and `done` shuts it)
-    if ! mkdir "$IOS_LOCK" 2>/dev/null; then
-      if [ -n "$(find "$IOS_LOCK" -maxdepth 0 -mmin +60 2>/dev/null)" ]; then
-        echo "host_contract: taking over a lock left an hour ago: $(cat "$IOS_LOCK/owner" 2>/dev/null)"
+    # lock, the same as theirs (a directory made at once, `mkdir`), its owner said in it: who, and `pid N`, the process
+    # that holds it as long as it is used (on CI the runner's worker of the job: it ends with the run). Held, this
+    # waits for that process's end (scripts/logwait.py: kqueue's, no time; a line every few minutes saying whose it
+    # is, the job's own timeout the limit), or, an owner that says no pid, for the lock's going. An owner whose process
+    # is gone is left over and taken over; one that says no pid, after an hour at the last.
+    while ! mkdir "$IOS_LOCK" 2>/dev/null; do
+      who=$(head -1 "$IOS_LOCK/owner" 2>/dev/null)
+      opid=$(sed -n 's/^pid \([0-9][0-9]*\)$/\1/p' "$IOS_LOCK/owner" 2>/dev/null | head -1)
+      if [ -n "$opid" ] && ! kill -0 "$opid" 2>/dev/null; then
+        echo "host_contract: taking over the lock of ${who:-another run}: its process $opid is gone"
         rm -rf "$IOS_LOCK"
-        mkdir "$IOS_LOCK" 2>/dev/null || { echo "host_contract: another run took the simulator first"; exit 1; }
+      elif [ -z "$opid" ] && [ -n "$(find "$IOS_LOCK" -maxdepth 0 -mmin +60 2>/dev/null)" ]; then
+        echo "host_contract: taking over a lock left an hour ago, its process not said: ${who:-another run}"
+        rm -rf "$IOS_LOCK"
+      elif [ -n "$opid" ]; then
+        echo "host_contract: $MBUI_IOS_DEVICE is ${who:-another run}'s (pid $opid): waiting for its end"
+        # (a line again every five minutes: whose it still is)
+        "$PY" scripts/logwait.py --pid "$opid" --deadline 300 >/dev/null || true
       else
-        echo "host_contract: $MBUI_IOS_DEVICE is $(cat "$IOS_LOCK/owner" 2>/dev/null || echo "another run")'s ($IOS_LOCK): not run over it"
-        exit 1
+        echo "host_contract: $MBUI_IOS_DEVICE is ${who:-another run}'s ($IOS_LOCK, its process not said): waiting for it to go"
+        # (an owner that says no process: the lock's own going, a line again every five minutes)
+        "$PY" scripts/logwait.py --gone "$IOS_LOCK" --deadline 300 >/dev/null || true
       fi
-    fi
+    done
+    # the process that holds it: on CI the job's runner worker (ends with the run), by hand the shell that runs this
+    holder=$PPID
+    p=$$
+    while [ "$p" -gt 1 ]; do
+      case "$(ps -o comm= -p "$p" 2>/dev/null)" in *Runner.Worker*) holder=$p; break ;; esac
+      p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+      [ -n "$p" ] || break
+    done
     rm -f $O/booted-here
     mkdir -p $O
-    ME="mbui host-ios ${GITHUB_RUN_ID:-by hand $$}"
-    echo "$ME" > "$IOS_LOCK/owner"
-    echo "$ME" > $O/lock-owner
+    if [ -n "${GITHUB_RUN_ID:-}" ]; then ME="mbui host-ios run $GITHUB_RUN_ID"; else ME="mbui host-ios by hand"; fi
+    printf '%s\npid %s\n' "$ME" "$holder" > "$IOS_LOCK/owner"
+    cp "$IOS_LOCK/owner" $O/lock-owner
     read -r ID STATE <<< "$(ios_device)"
     if [ "$STATE" = Booted ]; then
       apps=$(ios_apps "$ID")
@@ -196,7 +215,7 @@ case $CMD in
     fi
     rm -f $O/booted-here
     # the lock let go, if it is still this run's
-    if [ -f $O/lock-owner ] && [ "$(cat "$IOS_LOCK/owner" 2>/dev/null)" = "$(cat $O/lock-owner)" ]; then
+    if [ -f $O/lock-owner ] && cmp -s "$IOS_LOCK/owner" $O/lock-owner; then
       rm -rf "$IOS_LOCK"
       echo "$MBUI_IOS_DEVICE: lock let go"
     fi

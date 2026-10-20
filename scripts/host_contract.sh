@@ -20,8 +20,9 @@
 #        to (VIEWTOLD), on whole device pixels, or it fails
 #   scripts/host_contract.sh HOST rest          (android, mac) kitdemo's foundation page pictured at its rest (a run
 #        on its own clock: Android's shot_at=rest, mac's MBUI_SHOT_MS=rest; @ui's Ctx::at_rest) and at a declared
-#        moment (1000 ms on that clock): both taken ("SHOT n t"), and the same to the byte (out/host/HOST/rest-*.png),
-#        or it fails: the moment the app's rest is found at is not too early
+#        moment (1000 ms on that clock): both taken ("SHOT n t"), both of the page, and the same to the byte in the
+#        window's rows (out/host/HOST/rest-*.png; a phone's status bar, its clock, is the system's), or it fails: the
+#        moment the app's rest is found at is not too early
 #   scripts/host_contract.sh ios free|done      (iOS) before the runs: the simulator not in another's use (booted with an
 #        app of its running: this fails, saying so); after them: shut down again when these runs booted it
 #
@@ -411,13 +412,12 @@ open(sys.argv[2],'wb').write(base64.b64decode(''.join(parts)))
       if ! grep -aqE "^SHOT [0-9]+ [0-9]" $O/rest-$m.log || [ ! -s $O/rest-$m.png ]; then
         echo "rest contract ($H): no picture at $m"; tail -20 $O/rest-$m.log; exit 1
       fi
-      # (of the page: two wrong pictures, a splash's or "No page", would be the same to the byte too)
-      "$PY" scripts/gallery_shot.py $O/rest-$m.png || exit 1
     done
-    if cmp -s $O/rest-$at_ms.png $O/rest-rest.png; then
-      echo "rest contract ($H): the picture at its rest is the one at $at_ms ms, to the byte"
+    # (of the page: two wrong pictures, a splash's or "No page", would be the same to the byte too)
+    if "$PY" scripts/gallery_shot.py $O/rest-$at_ms.png $O/rest-rest.png; then
+      echo "rest contract ($H): the picture at its rest is the one at $at_ms ms"
     else
-      echo "rest contract ($H): the picture at its rest differs from the one at $at_ms ms ($O/rest-rest.png, rest-$at_ms.png)"
+      echo "rest contract ($H): the picture at its rest is not the one at $at_ms ms ($O/rest-rest.png, rest-$at_ms.png)"
       exit 1
     fi ;;
   *) echo "host_contract.sh: no command $CMD (build, record, text, marks, rest; ios: free, done)" >&2; exit 1 ;;

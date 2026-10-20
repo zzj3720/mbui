@@ -335,9 +335,12 @@ def split_jobs(c_file, objdir, cc, flags, gen_flags, init_flags, units, msvc, lt
         raw = f.read()
     t0 = time.time()
     # the same C split the same way as last time: the units are there already
-    # a package's functions together (MBC_GROUP=package, the default; size: each function by itself): with ThinLTO
-    # the frames of scripts/bench.sh are within 1% of the whole file's (size: 2%; without LTO 12% and 17% slower)
-    group = os.environ.get('MBC_GROUP', 'package')
+    # a package's functions together (MBC_GROUP=package; size: each function by itself): with ThinLTO the frames of
+    # scripts/bench.sh are within 1% of the whole file's (size: 2%; without LTO 12% and 17% slower). stable, the
+    # default: packages too (a big one by source file), moonc's made-up names made stable and each unit with only the
+    # declarations it uses, so that a change compiles the units whose functions changed, not all of them
+    # (csplit.split_stable; scripts/bench.sh's frames within 1% of package's, 2026-10-20)
+    group = os.environ.get('MBC_GROUP', 'stable')
     key = hashlib.sha1(raw + f'\0{units}\0{group}\0{file_hash(os.path.abspath(csplit.__file__))}'.encode()).hexdigest()
     saved = os.path.join(srcdir, 'manifest.json')
     manifest = None

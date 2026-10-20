@@ -135,6 +135,85 @@ class Split(unittest.TestCase):
         self.assertIn('void moonbit_init();', files['decls.h'])
         self.assertNotIn('_M0G1 = {', files['decls.h'] + files['externs.h'])
 
+    def test_stable(self):
+        """group 'stable': moonc's made-up numbers (locals, labels, anonymous functions, string literals) another
+        build numbers otherwise give the same units; a package's functions in its unit, with only what they use."""
+        def prog(n, extra=''):
+            return PRELUDE + '\n' + textwrap.dedent(f'''\
+                struct _M0TP11a1T;
+
+                struct _M0TP11a1T {{
+                  int32_t x;
+                }};
+
+                struct _M0TP11b1U {{
+                  int32_t y;
+                }};
+
+                static struct {{ int32_t rc; uint16_t const data[2]; }} const moonbit_string_literal_{n} =
+                  {{ 1, {{104, 0}} }};
+
+                int32_t _M0FP11a3add(int32_t, int32_t);
+
+                static int32_t _M0FP11a4callC{n}l9(int32_t);
+
+                static int32_t _M0FP11b4only(int32_t);
+
+                #define _M0FP11b3ffi b_real
+
+                int32_t b_real(int32_t);
+
+                {extra}
+                static int32_t _M0FP11a4callC{n}l9(int32_t _M0L1xS{n}) {{
+                  int32_t _M0L6_2atmpS{n + 1} = _M0L1xS{n} + (int32_t)moonbit_string_literal_{n}.data[0];
+                  goto joinlet_{n};
+                  joinlet_{n}:
+                  return _M0L6_2atmpS{n + 1};
+                }}
+
+                int32_t _M0FP11a3add(int32_t a, int32_t b) {{
+                  struct _M0TP11a1T t = {{ .x = a }};
+                  return t.x + b + _M0FP11a4callC{n}l9(0);
+                }}
+
+                static int32_t _M0FP11b4only(int32_t _M0L1yS{n + 7}) {{
+                  struct _M0TP11b1U u = {{ _M0L1yS{n + 7} }};
+                  return u.y + _M0FP11b3ffi(0);
+                }}
+
+                void moonbit_init() {{
+                }}
+
+                int main(int argc, char** argv) {{
+                  moonbit_init();
+                  printf("%d\\n", _M0FP11a3add(1, 2) + _M0FP11b4only(3));
+                  return 0;
+                }}
+                ''')
+        one, m = csplit.split(prog(12), 2, 'stable')
+        two, _ = csplit.split(prog(345, 'int32_t _M0FP11c5otherC9l9(int32_t);\n'), 2, 'stable')
+        units = sorted(n for n in one if n not in ('decls.h', 'externs.h', 'data.c', 'init.c'))
+        self.assertEqual(units, ['s0.c'])  # (two small packages: together)
+        for n in units:
+            self.assertEqual(one[n], two[n], n)
+        u = one['s0.c']
+        self.assertNotIn('S12', u)
+        self.assertNotIn('joinlet_12', u)
+        self.assertNotIn('moonbit_string_literal_12', u)
+        self.assertIn('t.x', u)  # a member stays
+        self.assertIn('int32_t _M0FP11a3add(int32_t a', u)  # not static: its name kept
+        self.assertGreater(m['stats']['renamed'], 0)
+        # a unit has what it uses only: package b's alone does not declare a's type
+        # (a's functions over half a unit: a unit of its own; b's under: with the other small ones)
+        apart, _ = csplit.split(prog(12), 2, 'stable', unit_bytes=600)
+        self.assertEqual(sorted(n for n in apart if n.endswith('.c') and n not in ('data.c', 'init.c')), ['a.c', 's0.c'])
+        # (the types renamed too: by their members)
+        self.assertIn('int32_t y;', apart['s0.c'])
+        self.assertNotIn('int32_t x;', apart['s0.c'])
+        self.assertIn('int32_t x;', apart['a.c'])
+        self.assertNotIn('int32_t y;', apart['a.c'])
+        self.assertIn('int32_t b_real(int32_t);', apart['s0.c'])  # what an FFI name stands for
+
     def refuse(self, src, words):
         with self.assertRaises(csplit.SplitError) as e:
             csplit.split(src, 2)

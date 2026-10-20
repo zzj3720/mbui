@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A real host's run (MBUI_TEXT_RECORD=1 MBUI_DRAW_LOG=1: TEXTREC, DRAWHASH and INPUT lines on its log) made a test of
+"""A real host's run (MBUI_TEXT_RECORD=1 MBUI_DRAW_LOG=1: TEXTREC, DRAWHASH, INPUT and ENV lines on its log) made a test of
 whether a Tester over the host's kept text draws, frame for frame, what the host drew (the host's contract,
 docs/determinism.md): the run kept as src/kitdemo/textrec_NAME.mbt, its test src/kitdemo/textrec_NAME_wbtest.mbt, and
 src/kitdemo/textrec_runs.mbt naming every kept run (what MBUI_TEXTCHECK=NAME asks the host's text system again: the
@@ -12,6 +12,7 @@ W H "-": the window's size at the run's first frame (its DRAWHASH line).
 PLATFORM is the host's as @host.platform has it (0 macOS, 1 iOS, 2 Android, 3 Windows, 4 the web; 0 by default).
 """
 import glob
+import re
 import os
 import sys
 
@@ -51,10 +52,16 @@ def main():
     def tail(l, w):
         return l[l.index(w):]
 
-    # the host's text, then its frames and the inputs between them in the order they came
+    # the host's text, then its frames, the inputs between them and the system's settings (ENV) in the order they came
+    def frame_line(l):
+        for w in ("DRAWHASH ", "INPUT "):
+            if w in l and "TEXTREC " not in l:
+                return tail(l, w)
+        m = re.search(r"(^|[\s:])(ENV \{.*)", l)
+        return m.group(2) if m and "TEXTREC " not in l else None
+
     keep = [tail(l, "TEXTREC") for l in lines if "TEXTREC " in l] + [
-        tail(l, "DRAWHASH") if "DRAWHASH " in l else tail(l, "INPUT ") for l in lines
-        if "DRAWHASH " in l or "INPUT " in l]
+        k for k in (frame_line(l) for l in lines) if k is not None]
     how = f"{name}: MBUI_TEXT_RECORD=1 MBUI_DRAW_LOG=1 MBUI_SCREEN={page} MBUI_WIN={size}, platform {platform}"
     data = [f"// Kept from a real host's run ({how}),",
             "// made by scripts/textrec_test.py: not edited by hand.", "", "///|", f"let run_{name} : String ="]

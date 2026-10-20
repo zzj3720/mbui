@@ -55,4 +55,4 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: for k in 1 2 3; do for v in base new; do (cd $v && bash scripts/render_android.sh run 2>&1 | grep -a 'timed' | sed "s/^/AB $v $k: /"); done; done
+          script: bash new/scripts/bench_ab_android.sh

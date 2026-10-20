@@ -546,16 +546,35 @@ def idents(text):
     return {m.group(1) for m in SCAN.finditer(text) if m.group(1)}
 
 
+def content_hash(text):
+    """The part of a name that says what it names (a string literal's, a layout's): 64 bits of its content's SHA-1.
+    Two contents that come out the same are named apart (by_content)."""
+    return hashlib.sha1(text.encode('utf-8', 'surrogateescape')).hexdigest()[:16]
+
+
+def by_content(contents, prefix):
+    """{content: name} for `contents`, each named by its content_hash; contents whose hashes are the same numbered
+    apart in the order of their text, so that each content keeps its name whatever else the program has (unless
+    another of the same hash comes or goes)."""
+    groups = {}
+    for c in set(contents):
+        groups.setdefault(content_hash(c), []).append(c)
+    out = {}
+    for h, cs in groups.items():
+        for k, c in enumerate(sorted(cs)):
+            out[c] = prefix + h + (f'_{k}' if k else '')
+    return out
+
+
 def stable_names(names, data_text):
     """{name: its stable name} for moonc's globals `names` (in moonc's order): those whose names differ only in their
     numbers in one group, numbered in the order of their numbers; a string literal by its content."""
     groups = {}
     out = {}
+    literals = []
     for name in names:
         if name.startswith('moonbit_string_literal_') and name in data_text:
-            body = data_text[name]
-            h = hashlib.sha1(body.replace(name, '').encode('utf-8', 'surrogateescape')).hexdigest()[:16]
-            out[name] = '_Ms' + h
+            literals.append((name, data_text[name].replace(name, '')))
             continue
         groups.setdefault(DIGITS.sub('#', name), []).append(name)
     for stem, members in groups.items():
@@ -563,14 +582,13 @@ def stable_names(names, data_text):
         flat = stem.replace('#', '0')
         for k, name in enumerate(members):
             out[name] = f'_Mz{k}_{flat}'
-    # two string literals of the same content (moonc makes one of each): numbered apart
+    # a string literal by its content (two the same, which moonc does not make: numbered apart, in its order)
+    named = by_content([c for _, c in literals], '_Ms')
     seen = {}
-    for name in names:
-        n = out.get(name)
-        if n and n.startswith('_Ms'):
-            seen[n] = seen.get(n, 0) + 1
-            if seen[n] > 1:
-                out[name] = f'{n}_{seen[n]}'
+    for name, c in literals:
+        n = named[c]
+        seen[n] = seen.get(n, 0) + 1
+        out[name] = n if seen[n] == 1 else f'{n}_x{seen[n]}'
     return out
 
 
@@ -710,21 +728,29 @@ def split_stable(prelude, decls, decl_kinds, externs, data, data_names, funcs, i
             if table and table[-1] == '':
                 table.pop()
 
-    def layout_name(off):
+    def layout_words(off):
         # an entry is [size; child count; tagged child…] (runtime.c): by its words, which name its type and its
         # members, two the same are the same layout (the runtime reads one only through the table:
         # Moonbit_header_layout), the first of them the constant's value
-        n = None
         if table is not None and off + 1 < len(table) and re.fullmatch(r'\d+[uU]?', table[off + 1]):
             end = off + 2 + int(table[off + 1].rstrip('uU'))
             if end <= len(table):
-                words = '\0'.join(re.sub(r'\s+', ' ', w) for w in table[off:end])
-                n = 'csplit_layout_' + hashlib.sha1(words.encode('utf-8', 'surrogateescape')).hexdigest()[:16]
-        if n is None:
-            n = f'csplit_layout_at{off}'
-        if n not in layouts or off < layouts[n]:
-            layouts[n] = off
-        return n
+                return '\0'.join(re.sub(r'\s+', ' ', w) for w in table[off:end])
+        return None
+    offsets = sorted({int(m.group(2)) for t in [f[1] for f in rest] + [inits[0][1]] for m in LAYOUT_RE.finditer(t)})
+    first = {}  # a layout's words: its first offset
+    key_of = {}
+    for off in offsets:
+        w = layout_words(off)
+        k = w if w is not None else f'(at {off})'
+        key_of[off] = k
+        first.setdefault(k, off)
+    layout_named = by_content(list(first), 'csplit_layout_')
+    for k, off in first.items():
+        layouts[layout_named[k]] = off
+
+    def layout_name(off):
+        return layout_named[key_of[off]]
 
     def name_layouts(text):
         used = set()

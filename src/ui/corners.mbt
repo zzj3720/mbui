@@ -59,11 +59,52 @@ pub fn Tester::corner_faults(self : Tester) -> Array[String] {
       if !(even && concentric) {
         let corner = ["top left", "top right", "bottom left", "bottom right"][k]
         out.push(
-          "node \{i} (\{b.fw.round()}×\{b.fh.round()}, corner \{rb}) in the \{corner} of node \{p} (corner \{ra}): \{dx} and \{dy} from its edges" +
+          "\{c.named(i)} (corner \{rb}) in the \{corner} of \{c.named(p)} (corner \{ra}): \{dx} and \{dy} from its edges" +
           (if concentric { "" } else { ", wants corner \{ra - dmax(dx, dy)}" }),
         )
       }
     }
   }
   out
+}
+
+///|
+/// Node `i` as a fault names it: the words built in it, else its nearest container's that has any (said so), where
+/// it is and how large, and its number in the frame.
+fn Ctx::named(self : Ctx, i : Int) -> String {
+  let n = self.nodes[i]
+  let place = "at \{n.x.round()},\{n.y.round()} \{n.fw.round()}×\{n.fh.round()}, node \{i}"
+  match self.words_cut(i) {
+    Some(w) => "「\{w}」 (\{place})"
+    None => {
+      let mut p = n.parent
+      while p >= 0 {
+        match self.words_cut(p) {
+          Some(w) => return "a box in 「\{w}」 (\{place})"
+          None => p = self.nodes[p].parent
+        }
+      }
+      "a box (\{place})"
+    }
+  }
+}
+
+///|
+/// The words built in node `i` (semantics.mbt's), cut to 24 characters; None when it has none.
+fn Ctx::words_cut(self : Ctx, i : Int) -> String? {
+  let w = self.words_in(i)
+  if w == "" {
+    return None
+  }
+  let sb = StringBuilder()
+  let mut count = 0
+  for ch in w {
+    if count == 24 {
+      sb.write_string("…")
+      break
+    }
+    sb.write_char(ch)
+    count += 1
+  }
+  Some(sb.to_string())
 }

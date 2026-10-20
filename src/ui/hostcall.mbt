@@ -135,6 +135,8 @@ struct FakeHost {
   mut stream_ids : Int
   streams_fed : Map[Int, Array[String]]
   stream_said : Map[Int, Array[String]]
+  /// the device beyond the window (device.mbt): awake, haptics, the clipboard's picture and reads, the keyboard's height
+  dev : FakeDevice
 }
 
 ///|
@@ -557,6 +559,10 @@ let outside_update = 7
 let outside_stream = 8
 
 ///|
+/// The clipboard read (@host.ClipRead's id: device.mbt).
+let outside_clip = 9
+
+///|
 let outside_tickets : Map[Int64, Int] = Map::new()
 
 ///|
@@ -618,7 +624,11 @@ fn on_outside(kind : Int, id : Int, state : Int) -> Unit {
   }
   outside_end(kind, id)
   // an answer brought (what was picked, read, drawn, grabbed): read as the next frame builds
-  if kind == outside_pick || kind == outside_gallery || kind == outside_marks || kind == outside_grab {
+  if kind == outside_pick ||
+    kind == outside_gallery ||
+    kind == outside_marks ||
+    kind == outside_grab ||
+    kind == outside_clip {
     h_request_frame()
   }
 }

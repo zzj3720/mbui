@@ -132,7 +132,8 @@ pub impl @ui.Moving for Anim with rest_at(self, now, frame) {
 
 ///|
 /// When it is there (whole ms, the frames' clock): from when it was told in a frame; +inf while it has not started
-/// yet (told between frames, it starts at the first frame after), before now (-1) when it is at rest.
+/// yet (told between frames, it starts at the first frame after), before now (-1) when it is at rest. For the frames
+/// (rounded up): the next of a chain of motions starts at `ends()`, its declared end.
 pub fn Anim::ends_at(self : Anim) -> Double {
   if !self.running {
     -1.0
@@ -228,6 +229,14 @@ pub fn Anim::animate(
   self.asked = c.frame_number()
   // (started earlier: stepped this frame to where it is by now, as get() asks)
   self.stepped = if start_at is Some(_) { -1 } else { c.frame_number() }
+  // motion reduced: its length none (Motion.kt), there at once, its end the moment it was told, so a chain goes on
+  // from it in the same build, all of it there at once
+  if c.still() {
+    self.dur = 0.0
+    if self.start < 0.0 {
+      self.start = c.now()
+    }
+  }
   let over = start_at is Some(at) && at + self.dur <= c.now()
   if c.still() || over || (self.dur <= 0.0 && self.from == self.end) {
     self.finish()

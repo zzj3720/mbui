@@ -4,6 +4,7 @@
 ///|
 fn kept_run(name : String) -> String? {
   match name {
+    "android_controls" => Some(run_android_controls)
     "drive_controls" => Some(run_drive_controls)
     "mini1_controls" => Some(run_mini1_controls)
     "mini1_disclosure" => Some(run_mini1_disclosure)

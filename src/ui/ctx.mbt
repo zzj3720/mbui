@@ -208,6 +208,10 @@ pub struct Ctx {
   /// focus given, a list scrolled): built again in this frame (frame_body); the last that changed (what it is)
   mut read_back_moved : Bool
   mut read_back_key : String
+  /// what the view read of the layout as it built (readback.mbt): what it is, as read, and how to read it again; the
+  /// boxes' rects as last laid out
+  layout_reads : Map[String, (String, () -> String)]
+  laid_rects : Map[Int, (Double, Double, Double, Double)]
   mut nav_rest : Double
   /// what is under everything the frame draws (0-1: what the host clears to as it presents it)
   clear : (Double, Double, Double)
@@ -354,6 +358,8 @@ fn Ctx::new() -> Ctx {
     took_input: false,
     read_back_moved: false,
     read_back_key: "",
+    layout_reads: Map::new(),
+    laid_rects: Map::new(),
     nav_rest: -1.0,
     clear: (0.961, 0.961, 0.969),
     host_rec: HostRec::new(),
@@ -1087,7 +1093,9 @@ fn Ctx::wake_at_time(self : Ctx, t : Double, later? : Bool = false) -> Unit {
 
 ///|
 /// Where the thing with `id` was drawn last frame (x, y, w, h), as far as it
-/// showed: for parts that follow the pointer across them (a slider).
+/// showed: for parts that follow the pointer across them (a slider). The hit area the last frame drew, cut to its
+/// clips: for following a finger and hitting, not for sizing what is built (that is Ctx::laid_rect, this frame's
+/// layout, read back).
 pub fn Ctx::rect_of(self : Ctx, id : Int) -> (Double, Double, Double, Double)? {
   let mut k = self.hit_ids.length() - 1
   while k >= 0 {

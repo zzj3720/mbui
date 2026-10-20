@@ -54,10 +54,8 @@ pub fn Tester::corner_faults(self : Tester) -> Array[String] {
       if dx < -0.5 || dy < -0.5 || dx >= ra || dy >= ra {
         continue
       }
-      // flush in the corner of what cuts it: drawn with the container's own corner (a meter's fill in its pill)
-      if a.clip && dx <= 0.5 && dy <= 0.5 {
-        continue
-      }
+      // (flush in the corner of what cuts it is still a fault: a cut is a rectangle, the container's corner does not
+      // round what lies in it; it is let be once the cut follows the corner, mbui#42)
       let even = (dx - dy).abs() <= 0.5
       let concentric = (rb - (ra - dmax(dx, dy))).abs() <= 0.5
       if !(even && concentric) {

@@ -5,6 +5,7 @@
 ///|
 fn reset() -> Unit {
   sw_on.val = true
+  view_check_view.val = None
   cb.val = On
   size.val = "m"
   bold.val = true

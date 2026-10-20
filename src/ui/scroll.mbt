@@ -532,8 +532,8 @@ let coast_decel : Double = 0.997
 
 ///|
 /// The finger left the list at `v` (logical pixels per ms, positive down
-/// the list): it flings, or what it pulled past an end goes back.
-fn Ctx::release(self : Ctx, st : ListState, v : Double) -> Unit {
+/// the list) at `at` (the input's time): it flings, or what it pulled past an end goes back.
+fn Ctx::release(self : Ctx, st : ListState, v : Double, at : Double) -> Unit {
   st.held = false
   if scroll_logging() {
     let (dist, dur) = spline_fling(v * 1000.0 * self.scale, self.scale)
@@ -578,9 +578,10 @@ fn Ctx::release(self : Ctx, st : ListState, v : Double) -> Unit {
       self.moving(st.ease_mover, st as &Moving, what="a list's fling")
     }
   } else if v.abs() >= 0.02 {
+    // the desktop's coast sets out as the finger lets go
     st.fling = 3
     st.fling_v = v
-    st.fling_t0 = -1.0
+    st.fling_t0 = at
     st.fling_done = 0.0
     st.vel = v
     self.moving(st.ease_mover, st as &Moving, what="a list's coast")
@@ -592,7 +593,7 @@ fn Ctx::release(self : Ctx, st : ListState, v : Double) -> Unit {
 /// what was said as it set out (scroll_path.mbt).
 fn Ctx::step_scroll(self : Ctx, st : ListState) -> Unit {
   if st.vel != 0.0 && st.fling != 0 {
-    // each starts at its first frame (Compose's playtime 0)
+    // Android's and iOS's start at their first frame (Compose's playtime 0); the desktop's coast as it was let go
     if st.fling_t0 < 0.0 {
       st.fling_t0 = self.now
     }

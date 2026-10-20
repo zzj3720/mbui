@@ -136,6 +136,7 @@ pub fn Tester::frames(self : Tester, n : Int, ms? : Double = 16.0) -> Array[Int6
 /// `time` 16 ms before it, and `run` this log, so that frame is drawn by the settings the run began with).
 pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String, String)] {
   let out = []
+  let mut framed = false
   let num = fn(s : String) -> Double? {
     match (try Some(@json.parse(s)) catch { _ => None }) {
       Some(Number(d, ..)) => Some(d)
@@ -153,10 +154,13 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
       replay_input(self.fake, line)
       continue
     }
-    // what the host said of its views, said again at its place (hostcall.mbt: view_say)
+    // what the host said of its views, said again at its place (hostcall.mbt: view_say); before its first frame, said
+    // already (Tester::new's `run`)
     match line.find("VIEWSAID ") {
       Some(i) => {
-        self.view_said(line.view(start_offset=i + 9).to_owned()) |> ignore
+        if framed {
+          self.view_said(line.view(start_offset=i + 9).to_owned()) |> ignore
+        }
         continue
       }
       None => ()
@@ -167,6 +171,7 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
       continue
     }
     guard line.find("DRAWHASH ") is Some(i) else { continue }
+    framed = true
     let parts = line.view(start_offset=i + 9).split(" ").map(fn(p) { p.to_owned() }).to_array()
     guard parts.length() >= 6 else { continue }
     guard (num(parts[0]), num(parts[1]), num(parts[2]), num(parts[3]), num(parts[4]))

@@ -283,6 +283,11 @@ pub fn Tester::shared_out(self : Tester) -> Array[(String, String, String, Bytes
 /// bytes what the next view_still gives). What is not said is not known (NativeView::frames None, no frame grabbed).
 /// False for a line that is neither.
 pub fn Tester::view_said(self : Tester, line : String) -> Bool {
+  fake_view_said(self.fake, line)
+}
+
+///|
+fn fake_view_said(f : FakeHost, line : String) -> Bool {
   let j : Json = @json.parse(line) catch { _ => return false }
   let num = fn(o : Map[String, Json], k : String) -> Int? {
     match o.get(k) {
@@ -301,8 +306,8 @@ pub fn Tester::view_said(self : Tester, line : String) -> Bool {
               _ => 0.0
             }
           }
-          self.fake.view_infos[id] = (state, at)
-          self.fake.wants = true
+          f.view_infos[id] = (state, at)
+          f.wants = true
           true
         }
         _ => false
@@ -312,8 +317,8 @@ pub fn Tester::view_said(self : Tester, line : String) -> Bool {
         (Some(Object(v)), _) =>
           match (num(v, "view"), num(v, "what"), v.get("text")) {
             (Some(id), Some(what), Some(String(text))) => {
-              self.fake.view_texts[(id, what)] = text
-              self.fake.wants = true
+              f.view_texts[(id, what)] = text
+              f.wants = true
               true
             }
             _ => false
@@ -321,17 +326,17 @@ pub fn Tester::view_said(self : Tester, line : String) -> Bool {
         (_, Some(Object(v))) =>
           match (num(v, "view"), m.get("b")) {
             (Some(id), Some(String(hex))) => {
-              let q = match self.fake.view_stills.get(id) {
+              let q = match f.view_stills.get(id) {
                 Some(q) => q
                 None => {
                   let q = []
-                  self.fake.view_stills[id] = q
+                  f.view_stills[id] = q
                   q
                 }
               }
               q.push(bytes_of_hex(hex))
-              self.fake.view_texts[(id, 2)] = "2"
-              self.fake.wants = true
+              f.view_texts[(id, 2)] = "2"
+              f.wants = true
               true
             }
             _ => false

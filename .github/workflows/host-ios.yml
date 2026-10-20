@@ -25,6 +25,7 @@ on:
       - "src/kitdemo/main.mbt"
       - "test/marks/**"
       - "goldens/marks/ios*"
+      - "src/host/moon.pkg"
   push:
     branches: [main]
     paths: *paths
@@ -61,6 +62,9 @@ jobs:
               - "src/kitdemo/textcheck.mbt"
               - "src/kitdemo/textrec_ios_*"
               - ".github/workflows/host-ios.yml"
+              - "src/host/host_native.mbt"
+              - "src/kitdemo/main.mbt"
+              - "src/host/moon.pkg"
             marks:
               - "src/host/apple_views.m"
               - "src/host/apple.h"
@@ -76,6 +80,7 @@ jobs:
               - "scripts/mbc.py"
               - "scripts/host_contract.sh"
               - ".github/workflows/host-ios.yml"
+              - "src/host/moon.pkg"
       - name: The simulator free (no other run's app on it)
         run: scripts/host_contract.sh ios free
       - name: Install MoonBit (the latest, as the other jobs)

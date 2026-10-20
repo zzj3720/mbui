@@ -22,6 +22,7 @@ on:
       - "src/kitdemo/main.mbt"
       - "test/marks/**"
       - "goldens/marks/mac*"
+      - "src/host/moon.pkg"
   push:
     branches: [main]
     paths: *paths
@@ -56,6 +57,9 @@ jobs:
               - "src/kitdemo/textcheck.mbt"
               - "src/kitdemo/textrec_mini1_*"
               - ".github/workflows/host-mac.yml"
+              - "src/host/host_native.mbt"
+              - "src/kitdemo/main.mbt"
+              - "src/host/moon.pkg"
             marks:
               - "src/host/apple_views.m"
               - "src/host/apple.h"
@@ -69,6 +73,7 @@ jobs:
               - "scripts/mac.sh"
               - "scripts/host_contract.sh"
               - ".github/workflows/host-mac.yml"
+              - "src/host/moon.pkg"
       - name: Install MoonBit (the latest, as the other jobs)
         run: |
           export MOON_HOME=$RUNNER_TEMP/moon

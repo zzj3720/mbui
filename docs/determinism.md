@@ -144,7 +144,7 @@ Only for these, which the framework knows by itself:
   | Android | `host-android.yml`: an x86_64 emulator (API 34, google_apis, pixel_7; `ABI=x86_64` build) on ubuntu-24.04 | 9 frames the same | each answer the same | `android_controls` |
   | Windows | `host-windows.yml`: windows-latest, WARP | 9 frames the same | each answer the same | `windows_controls` |
   | web | `host-web.yml`: headless Chromium (SwiftShader's WebGL2) on ubuntu-24.04 | 9 frames the same | each answer the same | `web_controls` |
-  | macOS | our own machines only (no runner of ours is registered with the repository; GitHub's macOS runner is not used for this): `scripts/host_contract.sh mac …` on Studio or Mini1 | the Mini1 runs below | by hand | `mini1_*`, `drive_controls` |
+  | macOS | our own machines only, by hand (no runner of ours is registered with the repository; GitHub's macOS runner is not used for this): `scripts/host_contract.sh mac …` on Studio or Mini1 | 9 frames the same (Studio, 2026-10-20) | each answer of `mini1_controls` and `drive_controls` the same on Studio | `mini1_*`, `drive_controls` (Mini1's) |
 
   Each workflow runs when its host's code changes (the host's files in src/host, its scripts, these scripts, its kept
   run). What a tape does not keep yet and a host must therefore have as a Tester plays it: the system's reduced motion

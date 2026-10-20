@@ -10,6 +10,8 @@
 ///|
 /// What scrolls or is dragged under (x, y), the innermost first.
 fn claim_chain(c : Ctx, x : Double, y : Double) -> Array[Int] {
+  let _bump = 1
+  ignore(_bump)
   let ids = c.scroll_ids
   let rects = c.scroll_rects
   let out : Array[Int] = []

@@ -224,7 +224,8 @@ let inner_even : Double = 0.5
 /// the corner rule measures against (corner_container: through boxes with no corner, a ground laid beside as a layer)
 /// less the box's distance from that container's edges it is near (nearer than the container's corner is round),
 /// those distances the same; so the box is concentric with it by how it is written, and corner_faults finds nothing
-/// in it. In the order they were built, a container `Inner` itself worked out first. A box in no rounded container,
+/// in it. An edge whose corners a clip between cuts round (cut_round_at, corner_faults' own) does not count: there the
+/// cut is the corner. In the order they were built, a container `Inner` itself worked out first. A box in no rounded container,
 /// near none of its edges, or near edges at different distances (the window narrowed, a max_w come into force) is
 /// drawn square, and said so: corner_faults lists it, so a test fails where a person's screen would not.
 fn Ctx::corners_after_layout(self : Ctx) -> Unit {
@@ -250,7 +251,18 @@ fn Ctx::corners_after_layout(self : Ctx) -> Unit {
       ("right", a.x + a.fw - (n.x + n.fw)),
       ("bottom", a.y + a.fh - (n.y + n.fh)),
     ]
-    let near = sides.filter(fn(s) { s.1 < ra })
+    // a side whose two corners are both cut round by a clip between (cut_round_at, as corner_faults lets them be):
+    // what shows there is the cut's arc, the box's own corner does not count on it
+    let cut = [0, 1, 2, 3].map(fn(k) { self.cut_round_at(i, p, k) })
+    let corners_of = [[0, 2], [0, 1], [1, 3], [2, 3]]
+    let near_all = sides.mapi(fn(j, s) { (j, s) }).filter(fn(js) { js.1.1 < ra })
+    let near = near_all
+      .filter(fn(js) { !(cut[corners_of[js.0][0]] && cut[corners_of[js.0][1]]) })
+      .map(fn(js) { js.1 })
+    if near.is_empty() && !near_all.is_empty() {
+      // every edge it is near is cut round: the cut is its corner
+      continue
+    }
     if near.is_empty() {
       self.inner_faults.push(
         "\{self.named(i)}: radius=Inner, near none of the edges of \{self.named(p)} (corner \{ra})",

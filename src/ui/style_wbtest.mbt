@@ -252,6 +252,22 @@ test "style: radius=Inner in a container whose corner is a ground laid beside it
 }
 
 ///|
+test "style: radius=Inner flush against a rounded clip's edge: the cut is the corner there, the other edges count" {
+  let t = Tester::new(fn(c) {
+    c.box(pad=20.0, fn() {
+      c.box(w=Fill(1.0), h=Px(300.0), radius=24.0, bg=0xEEEEEEFFL, clip=true, padx=8.0, fn() {
+        c.box(style=style(w=Full, h=S10, radius=Inner, bg=Faint), fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  })
+  t.draw()
+  assert_eq(g().nodes[g().count - 1].radius, 16.0)
+  assert_eq(t.corner_faults(), [])
+}
+
+///|
 test "style: radius=Inner that cannot be concentric is drawn square and said, not stopped" {
   // nearer its container's top than its sides
   let t = Tester::new(inner_card(style(px=S2, pt=S4)))

@@ -223,8 +223,10 @@ pub struct Ctx {
   mut theme_narrow : Theme?
   mut narrow_below : Double
   mut narrow : Bool
-  // the boxes built this frame whose corner is `Inner` (style.mbt): worked out once laid out (corners.mbt)
+  // the boxes built this frame whose corner is `Inner` (style.mbt): worked out once laid out (corners.mbt), and
+  // those that could not be (Tester::corner_faults says them)
   inners : Array[Int]
+  inner_faults : Array[String]
   mut direction : Direction
   // what the widgets built this frame say they are (semantics.mbt), and how deep in a part hidden from it the view
   // builds; the actions asked of them (by the host's accessibility, a test) for the next frame, and this frame's
@@ -348,6 +350,7 @@ fn Ctx::new() -> Ctx {
     narrow_below: 700.0,
     narrow: false,
     inners: [],
+    inner_faults: [],
     direction: Ltr,
     sems: [],
     sem_hide: 0,

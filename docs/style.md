@@ -48,9 +48,12 @@ A box: `row`, `w` `h` `min_w` `max_w` `min_h` `max_h`, `p` `px` `py` `pl` `pr` `
 `w`, `center`, `wrap` (false: one line, cut with an ellipsis). Behaviour is not a style (`id`, `glass`, `notch_*`,
 `aspect`, `tx`/`ty`).
 
-`radius=Inner`: the parent's corner less the parent's padding on the sides the box lies against (as laid out); those
-paddings must be the same, and it must lie against one at least, or the frame stops saying so. What lies in a rounded
-container's corner is concentric with it by how it is written (`Tester::corner_faults` finds nothing there).
+`radius=Inner`: the corner of the container the corner rule measures against (`Tester::corner_faults`: the nearest
+rounded one round it that shows, through boxes with no corner, or a ground laid beside it as a layer) less how far the
+box lies from that container's edges it is near, as laid out. What lies in a rounded container's corner is concentric
+with it by how it is written. Where it cannot be (in no rounded container, near none of its edges, nearer one edge than
+another: the window narrowed, a `max_w` came into force) it is drawn square and `corner_faults` says so: a test fails,
+a person's screen does not stop.
 
 ## The three rules
 

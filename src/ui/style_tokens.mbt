@@ -202,9 +202,9 @@ fn Len::bound(self : Len, none_is : Double) -> Double {
 }
 
 ///|
-/// A corner, the theme's scale (Tailwind's names), a pill (`Full`: half the shorter side), or `Inner`: the parent's
-/// corner less the parent's padding on the sides this node lies against, so that what lies in a rounded container's
-/// corner is concentric with it by how it is written (worked out once laid out: corners.mbt).
+/// A corner, the theme's scale (Tailwind's names), a pill (`Full`: half the shorter side), or `Inner`: the corner of
+/// the rounded container it lies in less how far in it lies, so that what lies in a container's corner is concentric
+/// with it by how it is written (worked out once laid out: corners.mbt's corners_after_layout).
 pub(all) enum Radius {
   Sharp
   Sm

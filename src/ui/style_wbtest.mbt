@@ -194,15 +194,18 @@ test "style: set once, the narrow theme is picked again each frame as the window
 }
 
 ///|
-/// A card rounded 24, padded `pad`, holding a column of rows rounded `Inner`.
+/// A card rounded 24, padded `pad`, holding a column (no corner of its own) of rows rounded `Inner`.
 fn inner_card(pad : Style) -> (Ctx) -> Unit {
   fn(c) {
     c.box(pad=20.0, fn() {
       c.box(style=style(w=Full, radius=Xl3, bg=Card).then(pad), fn() {
-        for k in 0..<3 {
-          c.box(style=style(w=Full, h=S10, radius=Inner, bg=Faint), fn() {  }) |> ignore
-          ignore(k)
-        }
+        c.box(w=Fill(1.0), gap=4.0, fn() {
+          for k in 0..<3 {
+            c.box(style=style(w=Full, h=S10, radius=Inner, bg=Faint), fn() {  }) |> ignore
+            ignore(k)
+          }
+        })
+        |> ignore
       })
       |> ignore
     })
@@ -211,21 +214,69 @@ fn inner_card(pad : Style) -> (Ctx) -> Unit {
 }
 
 ///|
-test "style: radius=Inner is the parent's corner less its padding, concentric (corner_faults finds none)" {
+test "style: radius=Inner is the container's corner less how far in it lies, through a column with no corner" {
   let t = Tester::new(inner_card(style(p=S2)))
   t.draw()
   let c = g()
-  for i in 3..<6 {
+  for i in 4..<7 {
     assert_eq(c.nodes[i].radius, 16.0)
   }
-  inspect(t.corner_faults(), content="[]")
-  // the sides it lies against padded alike, the others not: those it lies against are what count (the card taller
-  // than its rows: none lies against its bottom)
+  assert_eq(t.corner_faults(), [])
+  // the edges it is near at one distance, the far one not: the near ones are what count (the card taller than its
+  // rows: none is near its bottom)
   let t = Tester::new(inner_card(style(px=S2, pt=S2, pb=S6, h=S96)))
   t.draw()
-  assert_eq(g().nodes[3].radius, 16.0)
   assert_eq(g().nodes[4].radius, 16.0)
-  inspect(t.corner_faults(), content="[]")
+  assert_eq(g().nodes[6].radius, 16.0)
+  assert_eq(t.corner_faults(), [])
+}
+
+///|
+test "style: radius=Inner in a container whose corner is a ground laid beside it (a composer's glass)" {
+  let t = Tester::new(fn(c) {
+    c.box(pad=20.0, align=AStart, fn() {
+      c.box(w=Px(300.0), pad=8.0, fn() {
+        c.layer(fn() { c.box(w=Fill(1.0), h=Fill(1.0), radius=20.0, bg=0xEEEEEEFFL, fn() {  }) |> ignore })
+        |> ignore
+        c.box(style=style(w=Full, h=S10, radius=Inner, bg=Faint), fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  })
+  t.draw()
+  let c = g()
+  let row = c.count - 1
+  assert_eq(c.nodes[row].radius, 12.0)
+  assert_eq(t.corner_faults(), [])
+}
+
+///|
+test "style: radius=Inner that cannot be concentric is drawn square and said, not stopped" {
+  // nearer its container's top than its sides
+  let t = Tester::new(inner_card(style(px=S2, pt=S4)))
+  t.draw()
+  assert_eq(g().nodes[4].radius, 0.0)
+  let faults = t.corner_faults()
+  assert_true(faults.length() >= 1)
+  assert_true(faults[0].contains("radius=Inner, at different distances"), msg=faults[0])
+  // near none of its edges: a small box in the middle of a large card
+  let t = Tester::new(fn(c) {
+    c.box(pad=20.0, fn() {
+      c.box(w=Fill(1.0), h=Px(300.0), radius=24.0, bg=0xEEEEEEFFL, align=ACenter, justify=JCenter, fn() {
+        c.box(style=style(w=S20, h=S10, radius=Inner, bg=Faint), fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  })
+  t.draw()
+  assert_eq(g().nodes[g().count - 1].radius, 0.0)
+  assert_true(t.corner_faults()[0].contains("near none of the edges"))
+  // in no rounded container at all
+  let t = Tester::new(fn(c) { c.box(style=style(w=S20, h=S10, radius=Inner, bg=Faint), fn() {  }) |> ignore })
+  t.draw()
+  assert_true(t.corner_faults()[0].contains("in no rounded container"))
 }
 
 ///|

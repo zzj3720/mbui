@@ -101,8 +101,9 @@ fn main {
   if !supported {
     return
   }
-  let path = @host.env("MBUI_DL")
-  let out = @host.env("MBUI_DL_PNG")
+  // (a tool's arguments, from the process: not an app's reads of where it runs)
+  let path = arg("MBUI_DL")
+  let out = arg("MBUI_DL_PNG")
   if path == "" || out == "" {
     say("mbui-render: MBUI_DL=<list.dl> MBUI_DL_PNG=<out.png>")
     return

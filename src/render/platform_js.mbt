@@ -4,6 +4,11 @@
 let supported = false
 
 ///|
+fn arg(_name : String) -> String {
+  ""
+}
+
+///|
 fn init_offscreen(_w : Double, _h : Double, _scale : Double) -> Unit {
   ()
 }

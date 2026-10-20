@@ -34,7 +34,16 @@ extern "C" fn ffi_spin(ms : Double) -> Unit = "mbr_spin"
 extern "C" fn ffi_snapshot(path : String) -> Int = "mbr_snapshot"
 
 ///|
+#borrow(name)
+extern "C" fn ffi_arg(name : String) -> String = "mbr_arg"
+
+///|
 let supported = true
+
+///|
+fn arg(name : String) -> String {
+  ffi_arg(name)
+}
 
 ///|
 fn init_offscreen(w : Double, h : Double, scale : Double) -> Unit {

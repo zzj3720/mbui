@@ -77,6 +77,35 @@ moonbit_string_t mbr_read_text(moonbit_string_t path) {
   return out;
 }
 
+// the process's environment variable `name` ("" when unset)
+moonbit_string_t mbr_arg(moonbit_string_t name) {
+  char *n = utf8(name);
+  const char *v = getenv(n);
+  free(n);
+  if (!v) v = "";
+  int32_t k = 0;
+  size_t len = strlen(v);
+  uint16_t *u = malloc((len + 1) * 2 * sizeof(uint16_t));
+  for (size_t i = 0; i < len;) {
+    uint32_t c = (unsigned char)v[i];
+    int extra = c >= 0xF0 ? 3 : c >= 0xE0 ? 2 : c >= 0xC0 ? 1 : 0;
+    c = extra == 3 ? c & 7 : extra == 2 ? c & 15 : extra == 1 ? c & 31 : c;
+    i++;
+    for (int e = 0; e < extra && i < len; e++, i++) c = (c << 6) | ((unsigned char)v[i] & 63);
+    if (c >= 0x10000) {
+      c -= 0x10000;
+      u[k++] = 0xD800 + (c >> 10);
+      u[k++] = 0xDC00 + (c & 1023);
+    } else {
+      u[k++] = (uint16_t)c;
+    }
+  }
+  moonbit_string_t out = moonbit_make_string(k, 0);
+  memcpy(out, u, (size_t)k * 2);
+  free(u);
+  return out;
+}
+
 void mbr_say(moonbit_string_t s) {
   char *u = utf8(s);
   fprintf(stderr, "%s\n", u);

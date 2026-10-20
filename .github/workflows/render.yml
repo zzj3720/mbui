@@ -1,0 +1,51 @@
+# The renderer's pixels (docs/determinism.md, "Pixel references belong to one kind of machine"): a Tester's draw list
+# drawn offscreen on GitHub's macOS runner, twice, in two jobs: the two pictures the same to the byte, and the
+# runner's image said (its version is what the references are made on).
+name: render
+on:
+  pull_request:
+    paths:
+      - "src/host/apple_render.m"
+      - "src/host/apple_text.m"
+      - "src/render/**"
+      - "src/ui/drawlist.mbt"
+      - "scripts/render_offscreen.sh"
+      - ".github/workflows/render.yml"
+  workflow_dispatch:
+
+env:
+  MOON_HOME: ${{ github.workspace }}/../.moon
+
+jobs:
+  offscreen:
+    strategy:
+      matrix:
+        run: [1, 2]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | MOON_HOME=$MOON_HOME bash
+          echo "$MOON_HOME/bin" >> $GITHUB_PATH
+      - name: A Tester's draw list drawn offscreen (scripts/render_offscreen.sh)
+        run: scripts/render_offscreen.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-${{ matrix.run }}
+          path: out/render/
+
+  same:
+    needs: offscreen
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+      - name: The two jobs' pictures the same to the byte
+        run: |
+          cat render-1/machine.txt render-2/machine.txt
+          cmp render-1/controls.dl render-2/controls.dl
+          if cmp -s render-1/controls.png render-2/controls.png; then
+            echo "the same to the byte: $(md5sum < render-1/controls.png)"
+          else
+            echo "the two pictures differ"; exit 1
+          fi

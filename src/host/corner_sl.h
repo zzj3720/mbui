@@ -14,9 +14,9 @@
   "// The signed distance of p (from a box's middle) from that box, hs its half sides, its corners r (at most the shorter\n" \
   "// half) s smooth: |x|^n + |y|^n = R^n about each corner's centre, n from 2 to 2^1.5 and R from r to 1.25 r as s goes\n" \
   "// from 0 to 1. 0 on the curve; off it, the curve's value over how fast it grows there (along its normal, to first\n" \
-  "// order). At s = 0 a round corner's, as before. Only within `band` of the curve is it worked out (two powers a pixel):\n" \
-  "// the curve lies between the circle of R and that of R 2^(1/2 - 1/n) (under 1.107 R), and further than `band` inside\n" \
-  "// the one or outside the other the round distance has its sign and is as far, which is all a cover, an edge `band`\n" \
+  "// order). At s = 0 a round corner's, as before. Only within band of the curve is it worked out (two powers a pixel):\n" \
+  "// the curve lies between the circle of R and that of R 2^(1/2 - 1/n) (under 1.107 R), and further than band inside\n" \
+  "// the one or outside the other the round distance has its sign and is as far, which is all a cover, an edge band\n" \
   "// wide or a shadow that blurred says of it.\n" \
   "float mb_sd_corner(float2 p, float2 hs, float r, float s, float band) {\n" \
   "  float R = min(r * (1.0 + 0.25 * s), min(hs.x, hs.y));\n" \

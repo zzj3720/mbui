@@ -57,9 +57,10 @@ pub fn Ctx::moving(self : Ctx, who : Mover, m : &Moving, what? : String = "", lo
 }
 
 ///|
-/// `m` (`who` its mover) sets out now, as Ctx::moving says, and the moment it sets out at (the frames' clock): this
-/// frame's, told in it; told between frames, +inf, the next frame (one is asked for) then handing its time to `m`'s
-/// first sample. Where what moves as data starts from, not the clock.
+/// `m` (`who` its mover) sets out now, as Ctx::moving says, and the moment it sets out at (the frames' clock): told as
+/// the view builds or in an input's handler, this frame's; told between frames, +inf, the next frame (one is asked
+/// for) then handing its time to `m`'s first sample. Where what moves as data starts from, not the clock. Not for a
+/// fiber: its clock is the runtime's (whole ms), not the frames'.
 #callsite(autofill(loc))
 pub fn Ctx::set_out(self : Ctx, who : Mover, m : &Moving, what? : String = "", loc~ : SourceLoc) -> Double {
   self.moving_as(who, m, (if what == "" { "" } else { what + ", " }) + "told at \{loc}")

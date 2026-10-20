@@ -436,8 +436,11 @@ fn h_back_enabled(on : Bool) -> Unit {
 // the hosts name them). Each is a ticket of the window's runtime, ended by the host's event for it (@host.set_outside:
 // kind, id, state) or when the app lets it go or takes it; a run to a declared moment keeps its clock still while any
 // is (@host.frame_awaiting). A host that sends no such events (set_outside answers false) gets no tickets. An answer
-// the host tells (one of the kinds after a view) asks for a frame: what it brings is read as the next frame builds,
-// not looked for frame after frame.
+// the host tells (a pick, the gallery read, marks drawn, a frame grabbed, an update's word) asks for a frame: what it
+// brings is read as the next frame builds, not looked for frame after frame. Where a ticket of these ends: on a host,
+// at its event (or as the app takes the answer, if it read it first); under a Tester, whose fake host tells no event,
+// as the app takes the answer (Pick::files, MarkedImage::made, NativeView::grabbed): both are when the host's work for
+// it is over.
 
 ///|
 /// An image or a PDF's page decoded (its image's id).
@@ -530,7 +533,7 @@ fn on_outside(kind : Int, id : Int, state : Int) -> Unit {
   }
   outside_end(kind, id)
   // an answer brought (what was picked, read, drawn, grabbed): read as the next frame builds
-  if kind > outside_view {
+  if kind == outside_pick || kind == outside_gallery || kind == outside_marks || kind == outside_grab {
     h_request_frame()
   }
 }

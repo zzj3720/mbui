@@ -207,3 +207,52 @@ fn Ctx::layer_grounds(self : Ctx) -> Map[Int, Int] {
   }
   out
 }
+
+///|
+/// How near a side a laid-out node must be to lie against it, and two paddings to be one (layout's numbers are
+/// fractions; a fixed bound keeps the result the same every run).
+let inner_tolerance : Double = 0.01
+
+///|
+/// The corners said `Inner` (style.mbt), from where their boxes lie as laid out (the covers moved: after
+/// covers_after_layout, before anything is painted or its clip and hit target recorded): the parent's corner less the
+/// parent's padding on the sides the box lies against, that padding the same on each of them; so the box is concentric
+/// with its parent by how it is written, and corner_faults finds nothing in it. In the order they were built, a parent
+/// before what it holds (a parent `Inner` itself is worked out first). A box against none of its parent's sides, or
+/// against sides padded differently, is a mistake in the view: it stops here, saying which.
+fn Ctx::corners_after_layout(self : Ctx) -> Unit {
+  for i in self.inners {
+    let n = self.nodes[i]
+    if n.parent < 0 {
+      continue
+    }
+    let p = self.nodes[n.parent]
+    let against : Array[(String, Double)] = []
+    if (n.x - (p.x + p.pad_l)).abs() < inner_tolerance {
+      against.push(("left", p.pad_l))
+    }
+    if (n.y - (p.y + p.pad_t)).abs() < inner_tolerance {
+      against.push(("top", p.pad_t))
+    }
+    if (n.x + n.fw - (p.x + p.fw - p.pad_r)).abs() < inner_tolerance {
+      against.push(("right", p.pad_r))
+    }
+    if (n.y + n.fh - (p.y + p.fh - p.pad_b)).abs() < inner_tolerance {
+      against.push(("bottom", p.pad_b))
+    }
+    let pads = "left \{p.pad_l}, top \{p.pad_t}, right \{p.pad_r}, bottom \{p.pad_b}"
+    if against.is_empty() {
+      abort("style: radius=Inner on a box against none of its parent's sides (the parent's padding: \{pads})")
+    }
+    let d = against[0].1
+    for a in against {
+      if (a.1 - d).abs() > inner_tolerance {
+        let sides = against.map(fn(a) { a.0 }).join(", ")
+        abort(
+          "style: radius=Inner on a box against its parent's \{sides}, padded differently (the parent's padding: \{pads})",
+        )
+      }
+    }
+    n.radius = dmax(p.corner() - d, 0.0)
+  }
+}

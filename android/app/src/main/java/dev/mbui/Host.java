@@ -101,9 +101,13 @@ final class Host {
     private static boolean imeControllable;
     private static android.view.View imeWatched;  // the view whose controller tells them (an activity made anew: anew)
 
-    /** The window has the focus or lost it (MainActivity.onWindowFocusChanged). */
+    /** The window has the focus or lost it (MainActivity.onWindowFocusChanged): what is owed asked for, and said
+     * ("IME owed: show" asked now, "waiting" on the keyboard's window, "none"; scripts/android-keyboard.sh's word). */
     static void windowFocused(boolean has) {
-        if (has) showOwedIme();
+        if (!has) return;
+        boolean owed = imeOwed;
+        showOwedIme();
+        log("IME owed: " + (!owed ? "none" : imeOwed ? "waiting" : "show"));
     }
 
     private static void showOwedIme() {
@@ -121,7 +125,9 @@ final class Host {
             imeControllable = false;
             c.addOnControllableInsetsChangedListener((ctl, types) -> {
                 imeControllable = (types & WindowInsets.Type.ime()) != 0;
+                boolean owed = imeOwed;
                 showOwedIme();
+                if (owed && !imeOwed) log("IME owed: show");
             });
         }
         if (!view.hasWindowFocus()) return;

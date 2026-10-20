@@ -1,8 +1,8 @@
 # (bench-corners) a draw list of 48 cards rounded 20 and 96 rows rounded 12 in them, 960x720 at 2x
 import sys
-out = ["mbui-dl 4", "window 960 720 2", "clear 1 1 1"]
+out = ["mbui-dl 3", "window 960 720 2", "clear 1 1 1"]
 def box(x, y, w, h, r, c):
-    n = [x, y, w, h, r, 0, 0, 0, c, c, c, 1, 0, 0, 0, 0, 0, 0, 1000000000, 1000000000] + [0] * 12
+    n = [x, y, w, h, r, 0, 0, 0, c, c, c, 1, 0, 0, 0, 0, 0, 0, 1000000000, 1000000000] + [0] * 8
     out.append("i " + " ".join(str(v) for v in n))
 for j in range(6):
     for i in range(8):

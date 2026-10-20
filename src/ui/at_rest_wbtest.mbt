@@ -88,3 +88,25 @@ test "a video playing on screen is said as moving on its own (a run to its rest 
   t.draw()
   assert_eq(g().views_moving, [])
 }
+
+///|
+test "a runtime's timer said once is a wake a run's end sees, with who said it; one said `later` is not" {
+  let t = Tester::new(fn(c) { c.text("x", wrap=false) |> ignore }, w=100.0, h=100.0)
+  // (a core's retry, as its client says it)
+  let retry_ms = 500
+  fx.val.after(retry_ms, fn() {  }, who="core: timers")
+  fx.val.after(retry_ms * 2, fn() {  }, later=true, who="core: a ping")
+  t.draw()
+  match t.next_wake() {
+    Some((at, by)) => {
+      assert_true(by.contains("core: timers"), msg=by)
+      assert_false(g().frame_rest)
+      t.run_for(at - t.time())
+    }
+    None => fail("the runtime's timer is a wake")
+  }
+  t.draw()
+  assert_eq(t.next_wake(), None)
+  assert_true(g().frame_rest, msg=g().rest_why())
+  assert_true(own_clock())
+}

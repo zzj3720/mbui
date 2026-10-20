@@ -913,6 +913,9 @@ int32_t mb_host_open_url(moonbit_string_t s) {
   return [NSWorkspace.sharedWorkspace openURL:url] ? 1 : 0;
 }
 
+// Whether the run is on its own clock (host_native.mbt's own_clock): a settled run's.
+int32_t mb_host_own_clock(void) { return settle ? 1 : 0; }
+
 int32_t mb_host_reduce_motion(void) {
   return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion ? 1 : 0;
 }

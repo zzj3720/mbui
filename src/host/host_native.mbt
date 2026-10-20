@@ -91,6 +91,9 @@ extern "C" fn ffi_frame_awaiting(awaiting : Int, what : String, unrest : String)
 ///|
 extern "C" fn ffi_reduce_motion() -> Int = "mb_host_reduce_motion"
 
+///|
+extern "C" fn ffi_own_clock() -> Int = "mb_host_own_clock"
+
 extern "C" fn ffi_exit(code : Int) -> Unit = "mb_host_exit"
 
 extern "C" fn ffi_mem_bytes() -> Double = "mb_host_mem_bytes"
@@ -341,6 +344,13 @@ pub fn set_outside(f : FuncRef[(Int, Int, Int) -> Unit]) -> Bool {
 /// keeps its clock still while any is awaited; a run to its rest is pictured at the first frame at rest with none.
 pub fn frame_awaiting(awaiting : Int, what : String, unrest : String) -> Unit {
   ffi_frame_awaiting(awaiting, what, unrest)
+}
+
+///|
+/// Whether the run is on a clock of its own (its frames', 1/60 s a frame from 0, still while the app awaits the host:
+/// a picture's run, mac_app.m's settle, MBView's shot_at), not the machine's.
+pub fn own_clock() -> Bool {
+  ffi_own_clock() != 0
 }
 
 ///|

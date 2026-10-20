@@ -670,6 +670,9 @@ double mb_host_word_at(moonbit_string_t text, int32_t off) {
   return -1;
 }
 
+// Whether the run is on its own clock (host_native.mbt's own_clock): no run here is yet.
+int32_t mb_host_own_clock(void) { return 0; }
+
 int32_t mb_host_reduce_motion(void) {
   // the system's "show animations in Windows" off
   BOOL on = TRUE;

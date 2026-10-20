@@ -293,15 +293,21 @@ pub fn Tester::tap_notice(self : Tester, text : String) -> Bool {
 }
 
 ///|
-/// The next timer the app is waiting on (a wake said once: Ctx::wake_in, @kit.after), when it comes and who said it;
-/// None while none is. Not what comes again by itself (Ctx::every: Tester::periodic). What a run's end goes on to, as it
-/// goes on to a motion's declared end (Tester::rest_of).
+/// The next timer the app is waiting on (a wake said once: Ctx::wake_in, @kit.after; or its runtime's: a fiber's
+/// sleep, Runtime::after, a core's timer as its client says it), when it comes and who said it; None while none is.
+/// Not what comes again by itself (Ctx::every: Tester::periodic; a runtime's `later`). What a run's end goes on to, as
+/// it goes on to a motion's declared end (Tester::rest_of).
 pub fn Tester::next_wake(self : Tester) -> (Double, String)? {
   ignore(self)
   let c = g()
-  if c.wake_waited < 0.0 {
-    None
-  } else {
-    Some((c.wake_waited, by_of(c.wake_by)))
+  let ui = if c.wake_waited < 0.0 { None } else { Some((c.wake_waited, by_of(c.wake_by))) }
+  let rt = match fx.val.next_due() {
+    Some((at, who)) => Some((at.to_double(), " (the runtime's: " + (if who == "" { "a timer" } else { who }) + ")"))
+    None => None
+  }
+  match (ui, rt) {
+    (Some(a), Some(b)) => if b.0 < a.0 { Some(b) } else { Some(a) }
+    (Some(a), None) => Some(a)
+    (None, b) => b
   }
 }

@@ -71,6 +71,7 @@
   // (a run to a declared moment draws every frame to it: its timers are on its clock, due at the frame they fall in)
   H.wakeAfter = (ms) => { if (shotAt < 0) setTimeout(H.requestFrame, ms); };
   H.now = () => (shotAt >= 0 ? clock : performance.now());
+  H.ownClock = () => shotAt >= 0;
   // the time of day (@host.wall_ms): a run to a declared moment's from a fixed day (@ui.tester_wall's), on with its
   // clock, so what it shows of it is the same each run
   H.wallMs = () => (shotAt >= 0 ? 1790000000000 + clock : Date.now());

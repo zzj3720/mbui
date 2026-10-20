@@ -545,6 +545,8 @@ int32_t mb_host_open_url(moonbit_string_t s) {
   return 1;
 }
 
+// Whether the run is on its own clock (host_native.mbt's own_clock): no run here is yet.
+int32_t mb_host_own_clock(void) { return 0; }
 int32_t mb_host_reduce_motion(void) { return UIAccessibilityIsReduceMotionEnabled() ? 1 : 0; }
 
 // What the host did for the app, told as it is done (apple.h's mb_host_outside: images, native views).

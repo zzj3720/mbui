@@ -1183,6 +1183,9 @@ void mb_host_log(moonbit_string_t s) {
   (*env)->DeleteLocalRef(env, j);
 }
 
+// Whether the run is on its own clock (host_native.mbt's own_clock): a run to a declared moment's (Native.ownClock).
+int32_t mb_host_own_clock(void) { return own_clock; }
+
 int32_t mb_host_reduce_motion(void) {
   JNIEnv *env = env_();
   return (*env)->CallStaticIntMethod(env, host_cls, m_reduce_motion);

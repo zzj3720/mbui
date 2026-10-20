@@ -257,6 +257,17 @@ pub fn frame_awaiting(awaiting : Int, what : String, unrest : String) -> Unit {
 }
 
 ///|
+extern "js" fn js_own_clock() -> Bool =
+  #|() => !!(globalThis.__mbhost.ownClock && globalThis.__mbhost.ownClock())
+
+///|
+/// Whether the run is on a clock of its own (its frames', 1/60 s a frame from 0, still while the app awaits the host:
+/// web/host.js shot_at), not the machine's.
+pub fn own_clock() -> Bool {
+  js_own_clock()
+}
+
+///|
 /// Whether the system asks for less motion: the web host does not say.
 pub fn reduce_motion() -> Bool {
   false

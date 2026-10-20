@@ -98,7 +98,13 @@ for ds in json.load(sys.stdin)['devices'].values():
       echo "system $($ADB shell getprop ro.build.fingerprint | tr -d '\r')"
       echo "fonts $($ADB shell 'cat /system/etc/font_fallback.xml /system/fonts/Roboto-Regular.ttf' | md5sum | cut -c1-32)"
       echo "emulator $(sed -n 's/^Pkg.Revision=//p' $SDK/emulator/source.properties)"
-      echo "simd $($ADB shell cat /proc/cpuinfo | tr -d '\r' | sed -n 's/^flags[[:space:]]*: //p' | head -1 | tr ' ' '\n' | grep -E '^(avx2|avx512f|avx512bw|fma)$' | sort | tr '\n' ' ' | sed 's/ $//')"
+      # (the CPU features the emulator shows: what Skia's raster code picks its SIMD path by)
+      local flags simd= f
+      flags=$($ADB shell cat /proc/cpuinfo | tr -d '\r' | awk -F': ' '/^flags/ { print $2; exit }')
+      for f in sse4_2 avx avx2 fma avx512f avx512bw; do
+        case " $flags " in *" $f "*) simd="$simd $f" ;; esac
+      done
+      echo "simd ${simd# }"
       echo "cpu $(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo 2>/dev/null | head -1)" ;;
   esac
 }

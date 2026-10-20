@@ -38,3 +38,24 @@ test "the system's settings are kept with the run's frames, and given again as t
   assert_true(u.find("dark") is Some(_))
   assert_true(u.find("inset") is Some(_))
 }
+
+///|
+test "the settings a run began with (an ENV line before its first frame) draw that first frame again, as the run did" {
+  let t = @ui.Tester::new(env_view)
+  t.set_reduce_motion(true)
+  t.set_reduce_transparency(true)
+  t.set_dark(true)
+  t.draw()
+  let begun = t.time()
+  t.start_tape()
+  t.frame()
+  t.frame()
+  let tape = t.tape()
+  // a Tester made as by default, its first frame at the tape's first: drawn again by the run's settings
+  let u = @ui.Tester::new(env_view, time=begun + 16.0)
+  let frames = u.replay_frames(tape)
+  assert_eq(frames.length(), 2)
+  for f in frames {
+    assert_eq(f.1, f.2, msg="frame \{f.0}")
+  }
+}

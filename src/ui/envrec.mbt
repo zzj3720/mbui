@@ -31,11 +31,12 @@ fn env_at_frame() -> Unit {
 }
 
 ///|
-/// One ENV line set again on the fake host (Tester::replay_frames).
-fn replay_env(f : FakeHost, line : String) -> Unit {
-  guard line.find("ENV ") is Some(i) else { return }
-  let j = @json.parse(line.view(start_offset=i + 4).to_owned()) catch { _ => return }
-  guard j is Object(m) else { return }
+/// One ENV line set again on the fake host (Tester::replay_frames): whether it changed any.
+fn replay_env(f : FakeHost, line : String) -> Bool {
+  guard line.find("ENV ") is Some(i) else { return false }
+  let j = @json.parse(line.view(start_offset=i + 4).to_owned()) catch { _ => return false }
+  guard j is Object(m) else { return false }
+  let was = (f.reduce_motion, f.reduce_transparency, f.dark, f.inset)
   let on = fn(k : String, was : Bool) -> Bool {
     match m.get(k) {
       Some(Number(d, ..)) => d != 0.0
@@ -47,6 +48,7 @@ fn replay_env(f : FakeHost, line : String) -> Unit {
   f.dark = on("dark", f.dark)
   f.inset = on("inset", f.inset)
   f.wants = true
+  was != (f.reduce_motion, f.reduce_transparency, f.dark, f.inset)
 }
 
 ///|

@@ -137,11 +137,15 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
       _ => None
     }
   }
+  // the system's settings set again before the frame a Tester made already (its first): that frame drawn again by them
+  let mut env_changed = false
   for v in log.split("\n") {
     let line = v.to_owned()
     // what the host gave between two frames, handed on at its place (inputrec.mbt)
     if line.find("ENV ") is Some(_) {
-      replay_env(self.fake, line)
+      if replay_env(self.fake, line) {
+        env_changed = true
+      }
       continue
     }
     if line.find("INPUT ") is Some(_) {
@@ -168,9 +172,10 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
     }
     // (the frame a Tester made at this time already, as it was made: its first, Tester::new's `time`; any later one at
     // the same time is drawn, as a Tester's tape has them: Tester::draw)
-    if t != self.fake.time || out.length() > 0 {
+    if t != self.fake.time || out.length() > 0 || env_changed {
       self.frame(ms=t - self.fake.time)
     }
+    env_changed = false
     out.push((n.to_int(), parts[5], drawn_hash().to_string()))
   }
   out

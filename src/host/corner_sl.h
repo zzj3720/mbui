@@ -27,9 +27,9 @@
   "  float n = 2.0 + 0.8284271247461903 * s;\n" \
   "  float hi = max(m.x, m.y);\n" \
   "  float t = min(m.x, m.y) / hi;\n" \
-  "  float tn1 = pow(t, n - 1.0);\n" \
+  "  float tn1 = t * t;\n" \
   "  float tn = tn1 * t;\n" \
-  "  float u = pow(1.0 + tn, 1.0 / n);\n" \
+  "  float u = sqrt(1.0 + tn);\n" \
   "  return (hi * u - R) * (1.0 + tn) / (u * sqrt(1.0 + tn1 * tn1));\n" \
   "}\n" \
   "// A box's own corners: r at most its shorter half, as smooth as its size has room for (band: mb_sd_corner's).\n" \

@@ -683,7 +683,8 @@ test "layout_rest: a list's row gone, when its copy has left; its copy said to m
   assert_true(end > t.time() && end < @double.infinity, msg="\{end} at \{t.time()}")
   assert_eq(t.rest_of("row/b leaving"), end)
   assert_true(t.moving().iter().any(fn(m) { m.contains("Anim \"row/b leaving\"") }), msg=t.moving().join("; "))
-  t.run_for(50.0)
+  // half way
+  t.run_for(((end - t.time()) / 2.0).floor())
   assert_eq(@motion.layout_rest("row/b"), end)
   // (its copy drawn beside the two rows)
   let leaving = t.instances()

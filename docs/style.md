@@ -50,7 +50,7 @@ A box: `row`, `w` `h` `min_w` `max_w` `min_h` `max_h`, `p` `px` `py` `pl` `pr` `
 many lines, the last ending in an ellipsis: what follows of its paragraph up to what fits with it, as Android's
 `maxLines`; a count, so no style-literal). Letter spacing is Android's: each cluster's advance has it, its piece drawn
 half of it in; words with it are shaped with no ligatures (`@host.style_no_ligatures`), each cluster spaced on its own.
-Rich text (`Ctx::rich`) has neither yet. Behaviour is not a style (`id`, `glass`, `notch_*`,
+Rich text (`Ctx::rich`) has letter spacing, in every run, not `max_lines` yet. Behaviour is not a style (`id`, `glass`, `notch_*`,
 `aspect`, `tx`/`ty`).
 
 `radius=Inner`: the corner of the container the corner rule measures against (`Tester::corner_faults`: the nearest

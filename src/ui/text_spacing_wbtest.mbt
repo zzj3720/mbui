@@ -133,3 +133,29 @@ test "census: words' letter spacing is part of their size" {
   )
   assert_eq(t.census().text, ["15/20", "15/20 -0.6"])
 }
+
+///|
+test "letter spacing in rich text: every run's clusters, in the code face too" {
+  let spaced = Ref(false)
+  let t = Tester::new(
+    fn(c) {
+      c.column(align=AStart, fn() {
+        c.rich([plain("ab"), span("cd", mono=true)], tracking=if spaced.val { 2.0 } else { 0.0 }) |> ignore
+      })
+      |> ignore
+    },
+    w=300.0,
+    h=100.0,
+  )
+  let (_, _, w0, _) = t.rect_of("abcd").unwrap()
+  let xs0 = glyph_xs(t)
+  spaced.val = true
+  t.draw()
+  let (_, _, w1, _) = t.rect_of("abcd").unwrap()
+  assert_eq(w1 - w0, 8.0)
+  let xs1 = glyph_xs(t)
+  assert_eq(xs1.length(), 4)
+  for k in 0..<4 {
+    assert_eq(xs1[k] - xs0[k], 1.0 + 2.0 * k.to_double())
+  }
+}

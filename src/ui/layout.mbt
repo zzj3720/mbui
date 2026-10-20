@@ -176,6 +176,7 @@ fn rich_same(a : Rich?, b : Rich?) -> Bool {
       a.line == b.line &&
       a.wrap == b.wrap &&
       a.code_scale == b.code_scale &&
+      a.spacing == b.spacing &&
       a.code_bg == b.code_bg &&
       (physical_equal(a.runs, b.runs) || a.runs == b.runs)
     (None, None) => true

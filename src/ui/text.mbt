@@ -169,17 +169,21 @@ fn words_cjk(text : String) -> Bool {
 
 ///|
 /// How a line of words is set in a line `line` high, its font reaching `asc` above the baseline and `desc` below, as
-/// Android sets it (Compose's line height: LineHeightStyle Center, Trim.None, Mode.Tight): the line rounded up to a
-/// whole device pixel, the room over the font shared out above and below (below the bigger half, by a pixel at
-/// most). A font taller than its line is not cut: the first line keeps the font's top, the last its bottom.
+/// Android sets it (Compose's line height: LineHeightStyle Center, Trim.None, Mode.Tight): the room over the font
+/// shared out above and below; a font taller than its line not cut (the first line keeps the font's top, the last its
+/// bottom). Where the font's metrics are whole device pixels (Android's FontMetricsInt) the line is too, rounded up,
+/// and the room is shared in whole pixels, below the bigger half; elsewhere (Apple's, Windows' fractional metrics)
+/// as asked, halved.
 /// (pitch: from a line to the next; the first line's baseline from the top; how much more than the lines' pitch
 /// the words are high.)
 fn set_line(line : Double, asc : Double, desc : Double, sc : Double) -> (Double, Double, Double) {
   let sc = if sc > 0.0 { sc } else { 1.0 }
-  let pitch = (line * sc - 1.0e-6).ceil() / sc
+  let whole = fn(v : Double) { (v * sc - (v * sc).round()).abs() < 1.0e-4 }
+  let px = whole(asc) && whole(desc)
+  let pitch = if px { (line * sc - 1.0e-6).ceil() / sc } else { line }
   let room = pitch - asc - desc
   if room >= 0.0 {
-    let below = (room * sc / 2.0 - 1.0e-6).ceil() / sc
+    let below = if px { (room * sc / 2.0 - 1.0e-6).ceil() / sc } else { room / 2.0 }
     (pitch, pitch - desc - below, 0.0)
   } else {
     (pitch, asc, -room)

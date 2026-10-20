@@ -366,38 +366,26 @@ class Job:
         if store and self.from_store(store):
             self.cached = self.shared = True
             return self
-        lock = None
-        if store:
-            # another program compiling the same unit at the same time (moon builds a module's tests side by side):
-            # wait for its object rather than make it again
-            d = os.path.join(store, self.store_key()[:2], self.store_key())
-            os.makedirs(os.path.dirname(d), exist_ok=True)
-            lock = d + '.lock'
+        if not store:
+            return self.compile(store)
+        # another program compiling the same unit at the same time (moon builds a module's tests side by side): its
+        # object waited for, not made again. A lock the system lets go when its holder ends however it ends (flock):
+        # the wait is for that, no time (detlint's script-wait)
+        d = os.path.join(store, self.store_key()[:2], self.store_key())
+        os.makedirs(os.path.dirname(d), exist_ok=True)
+        try:
+            import fcntl
+        except ImportError:  # (Windows: no flock; each compiles its own)
+            return self.compile(store)
+        with open(d + '.lock', 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
             try:
-                os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
-            except FileExistsError:
-                # (a lock no one has touched for 5 minutes is a compile that died: not waited for)
-                while True:
-                    try:
-                        if time.time() - os.path.getmtime(lock) > 300:
-                            break
-                    except OSError:
-                        break
-                    time.sleep(0.2)
                 if self.from_store(store):
                     self.cached = self.shared = True
                     return self
-                lock = None  # (its compile failed, or took too long: this one makes its own)
-            except OSError:
-                lock = None
-        try:
-            return self.compile(store)
-        finally:
-            if lock:
-                try:
-                    os.remove(lock)
-                except OSError:
-                    pass
+                return self.compile(store)
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
 
     def compile(self, store):
         t0 = time.time()

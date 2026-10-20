@@ -33,9 +33,14 @@ fn ask_again(m : Map[String, Json]) -> (String, Json)? {
     (Some(head), _, _, _) =>
       match args(Some(head)) {
         Some((size, weight, style, _)) => {
-          let out = FixedArray::make(3, 0.0)
+          // (a run kept before hosts said the Han font's two: the three it kept)
+          let kept = match m.get("r") {
+            Some(Array(r)) => r.length()
+            _ => 5
+          }
+          let out = FixedArray::make(5, 0.0)
           @host.font_metrics(size, weight, style, out)
-          Some(("m " + head.stringify(), nums(out, 3)))
+          Some(("m " + head.stringify(), nums(out, if kept < 5 { kept } else { 5 })))
         }
         None => None
       }

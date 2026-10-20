@@ -80,7 +80,8 @@ struct TextCache {
   fonts : Array[FontShapes]
   // strings shaped, in all fonts
   mut shaped : Int
-  metrics : Map[Int, (Double, Double, Double)]
+  // ascent, descent, line height; the ascent and descent of the font Han falls back to
+  metrics : Map[Int, (Double, Double, Double, Double, Double)]
   glyphs : Map[Int, Glyph]
   mut generation : Int
   buf : FixedArray[Double]
@@ -115,16 +116,73 @@ fn font_metrics(
   weight : Int,
   style? : Int = 0,
 ) -> (Double, Double, Double) {
+  let (a, d, l, _, _) = all_metrics(size, weight, style)
+  (a, d, l)
+}
+
+///|
+/// Ascent and descent of the font a Han ideograph falls back to at this size (Noto Sans CJK, PingFang, Microsoft
+/// YaHei): taller than most Latin faces. A host that does not say (a kept text from before) answers the font's own.
+fn han_metrics(size : Double, weight : Int, style? : Int = 0) -> (Double, Double) {
+  let (_, _, _, a, d) = all_metrics(size, weight, style)
+  (a, d)
+}
+
+///|
+fn all_metrics(size : Double, weight : Int, style : Int) -> (Double, Double, Double, Double, Double) {
   let key = ((size * 10.0).to_int() * 1000 + weight) * 8 + style
   match text_cache.metrics.get(key) {
     Some(m) => m
     None => {
-      let o = FixedArray::make(3, 0.0)
+      let o = FixedArray::make(5, -1.0)
       h_font_metrics(size, weight, style, o)
-      let m = (o[0], o[1], o[2])
+      // (-1: not said)
+      let m = (o[0], o[1], o[2], if o[3] < 0.0 { o[0] } else { o[3] }, if o[4] < 0.0 { o[1] } else { o[4] })
       text_cache.metrics[key] = m
       m
     }
+  }
+}
+
+///|
+/// Whether the code unit starts a character set in a CJK font: Han, kana, Hangul, bopomofo, CJK and full-width
+/// punctuation (a surrogate: the supplementary ideographs).
+fn is_cjk(c : Int) -> Bool {
+  (c >= 0x2E80 && c <= 0x9FFF) ||
+  (c >= 0xAC00 && c <= 0xD7AF) ||
+  (c >= 0xD840 && c <= 0xD87F) ||
+  (c >= 0xF900 && c <= 0xFAFF) ||
+  (c >= 0xFE30 && c <= 0xFE4F) ||
+  (c >= 0xFF00 && c <= 0xFFEF)
+}
+
+///|
+/// Whether any of the words is in a CJK font's characters (is_cjk).
+fn words_cjk(text : String) -> Bool {
+  for i in 0..<text.length() {
+    if is_cjk(text.unsafe_charcode_at(i)) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// How a line of words is set in a line `line` high, its font reaching `asc` above the baseline and `desc` below, as
+/// Android sets it (Compose's line height: LineHeightStyle Center, Trim.None, Mode.Tight): the line rounded up to a
+/// whole device pixel, the room over the font shared out above and below (below the bigger half, by a pixel at
+/// most). A font taller than its line is not cut: the first line keeps the font's top, the last its bottom.
+/// (pitch: from a line to the next; the first line's baseline from the top; how much more than the lines' pitch
+/// the words are high.)
+fn set_line(line : Double, asc : Double, desc : Double, sc : Double) -> (Double, Double, Double) {
+  let sc = if sc > 0.0 { sc } else { 1.0 }
+  let pitch = (line * sc - 1.0e-6).ceil() / sc
+  let room = pitch - asc - desc
+  if room >= 0.0 {
+    let below = (room * sc / 2.0 - 1.0e-6).ceil() / sc
+    (pitch, pitch - desc - below, 0.0)
+  } else {
+    (pitch, asc, -room)
   }
 }
 
@@ -551,10 +609,6 @@ fn layout_text(
       _ => ()
     }
   }
-  let (asc, desc, own_h) = font_metrics(size, weight)
-  // a line as high as asked, the glyphs in its middle
-  let line_h = if line > 0.0 { line } else { own_h }
-  let ascent = (line_h - asc - desc) / 2.0 + asc
   let n = s.starts.length()
   let xs = Array::make(n, 0.0)
   let line_of = Array::make(n, 0)
@@ -616,6 +670,25 @@ fn layout_text(
     finish(ls, n)
   }
   let lines = line_start.length()
+  // a line as high as asked, the glyphs in its middle; measured by the first line's fonts, as Android measures them
+  // (Chinese in it: the CJK font's, taller), the lines after it set in the same place
+  let (asc, desc, own_h) = font_metrics(size, weight)
+  let mut cjk = false
+  if lines > 0 {
+    for c in line_start[0]..<line_end[0] {
+      if is_cjk(s.cu[c]) {
+        cjk = true
+        break
+      }
+    }
+  }
+  let (asc, desc) = if cjk {
+    let (ha, hd) = han_metrics(size, weight)
+    (dmax(asc, ha), dmax(desc, hd))
+  } else {
+    (asc, desc)
+  }
+  let (line_h, ascent, extra) = set_line(if line > 0.0 { line } else { own_h }, asc, desc, g().scale)
   // right to left: each line's clusters in their visual order
   let lv = match s.bidi {
     Some(b) => {
@@ -645,7 +718,7 @@ fn layout_text(
     xs,
     line_of,
     w: w_max,
-    h: lines.to_double() * line_h,
+    h: lines.to_double() * line_h + extra,
     ascent,
     line_h,
     lv,

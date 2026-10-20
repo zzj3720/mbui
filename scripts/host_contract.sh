@@ -286,9 +286,13 @@ case $CMD in
         $ADB shell "run-as $APPID rm -rf files/done" || true
         $ADB logcat -c
         EMU_PORT=${SERIAL#emulator-} APP=kitdemo BENCH=-1 \
-          ENV="MBUI_DRIVE_B64=$DRV;MBUI_DONE_DIR=/data/data/$APPID/files/done" bash scripts/android.sh run
-        $ADB logcat -v brief -e "DRIVE |FATAL EXCEPTION|Fatal signal" \
-          | "$PY" scripts/done_runner.py --log $O/done.log --adb "$ADB" --app $APPID $SAID || true ;;
+          ENV="MBUI_DRIVE_B64=$DRV;MBUI_DONE_DIR=/data/data/$APPID/files/done;MBUI_LOG_FILE=done-app.log" \
+          bash scripts/android.sh run
+        # (a run that hangs given 3 minutes before it fails, what it said kept: not a wait, the run ends itself)
+        timeout 180 $ADB logcat -v brief -e "DRIVE |FATAL EXCEPTION|Fatal signal|ANR in" \
+          | "$PY" scripts/done_runner.py --log $O/done.log --adb "$ADB" --app $APPID $SAID || true
+        $ADB exec-out run-as $APPID cat files/done-app.log > $O/done-app.log 2>/dev/null || true
+        $ADB shell dumpsys activity activities 2>/dev/null | grep -aE "ResumedActivity|mFocusedApp" | head -5 >> $O/done.log || true ;;
     esac
     tr -d '\r' < $O/done.log | grep -aE "DRIVE (start|ok done|runner done|FAIL|PASS)|RUNNER did" || true
     if grep -aq "DRIVE ok done ok" $O/done.log && grep -a "DRIVE FAIL" $O/done.log | grep -aq "failed_on_purpose"; then

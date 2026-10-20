@@ -58,6 +58,8 @@ jobs:
           api-level: 34
           target: default
           arch: x86_64
+          # the emulator's build the reference was made with (goldens/render/android.txt), not the newest
+          emulator-build: 16428233
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim

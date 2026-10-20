@@ -38,7 +38,7 @@ case "${1:-run}" in
       $ADB logcat -c
       $ADB shell am start -n $APP_ID/dev.mbui.MainActivity --es env "'MBUI_DL=$F/controls.dl;MBUI_DL_PNG=$F/controls.png'" >/dev/null
       # the renderer's own line once the picture is written (or the app's end)
-      said=$($ADB logcat -v brief -e 'mbui-render: |FATAL EXCEPTION|Fatal signal' -m 1)
+      said=$($ADB logcat -v brief -e 'mbui-render: |FATAL EXCEPTION|Fatal signal' -m 1 | grep -v '^-----')
       echo "run $n: $said"
       case "$said" in
         *"mbui-render: "*"instances"*) ;;
@@ -58,7 +58,7 @@ case "${1:-run}" in
       echo "draw list $(md5sum < $O/controls.dl | cut -c1-32)"
       echo "picture $(md5sum < $O/controls.png | cut -c1-32)"
       echo "image ${ImageOS:-} ${ImageVersion:-}"
-      echo "emulator $($SDK/emulator/emulator -version 2>/dev/null | sed -n '1s/.*version //p')"
+      echo "emulator $(sed -n 's/^Pkg.Revision=//p' $SDK/emulator/source.properties)"
       echo "system $(echo "$img" | sed "s|$SDK/system-images/||") $(sed -n 's/^Pkg.Revision=//p' "$img/source.properties" 2>/dev/null)"
       echo "build $($ADB shell getprop ro.build.fingerprint | tr -d '\r')"
       echo "gl $($ADB shell dumpsys SurfaceFlinger | sed -n 's/^GLES: //p' | head -1 | tr -d '\r')"

@@ -112,6 +112,10 @@ fn Ctx::scroll_list(self : Ctx, id : Int, d : Double) -> Unit {
 }
 
 ///|
+/// A wheel's notch's ease out (ms): its time constant, 1 - 1/e of the notch come by then.
+pub let wheel_ease_ms : Double = 36.0
+
+///|
 /// A wheel's notch on list `id`: scrolled by `d` over the next frames (eased out, as a browser eases one), not at
 /// once.
 fn Ctx::ease_list(self : Ctx, id : Int, d : Double) -> Unit {
@@ -127,12 +131,12 @@ fn Ctx::ease_list(self : Ctx, id : Int, d : Double) -> Unit {
 
 ///|
 /// What of a wheel's notches comes this frame (Ctx::ease_list): most of what is left, a frame's share of an ease out
-/// over about 120 ms.
+/// over about 120 ms (wheel_ease_ms its time constant).
 fn Ctx::step_ease(self : Ctx, st : ListState) -> Unit {
   if st.ease == 0.0 {
     return
   }
-  let k = 1.0 - @math.exp(-self.dt / 36.0)
+  let k = 1.0 - @math.exp(-self.dt / wheel_ease_ms)
   let take = if (st.ease * (1.0 - k)).abs() < 0.5 { st.ease } else { st.ease * k }
   st.ease = st.ease - take
   st.pending = st.pending + take

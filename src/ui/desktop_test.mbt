@@ -145,18 +145,21 @@ test "desktop: a wheel's notch is eased in, a trackpad's at once; the mouse drag
     h=400.0,
   )
   t.wheel_phase(150.0, 200.0, 120.0, 4)
+  // a moment into its ease
+  t.run_for(@ui.wheel_ease_ms)
   let first = t.list_offset()
   assert_true(first > 0.0 && first < 120.0)
   t.settle() |> ignore
-  assert_eq(t.list_offset(), 120.0)
+  // (the ease is stepped a frame at a time, not yet solved for the time: what frames it went by can leave a rounding)
+  assert_true((t.list_offset() - 120.0).abs() < 1.0e-9)
   t.wheel_phase(150.0, 200.0, 40.0, 0)
   t.settle() |> ignore
-  assert_eq(t.list_offset(), 160.0)
+  assert_true((t.list_offset() - 160.0).abs() < 1.0e-9)
   drags.val = false
   t.frame()
   t.drag(150.0, 300.0, 150.0, 100.0)
   t.settle() |> ignore
-  assert_eq(t.list_offset(), 160.0)
+  assert_true((t.list_offset() - 160.0).abs() < 1.0e-9)
 }
 
 ///|

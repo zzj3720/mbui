@@ -146,3 +146,36 @@ test "corners: a circle or a capsule in a corner: as far from both edges, the co
   assert_eq(faults.length(), 1)
   assert_true(faults[0].contains("16 and 12 from its edges"))
 }
+
+///|
+test "corners: a round thing centred in its container is not set in a corner" {
+  // a card's trailing ×, centred up and down in a row: near the top right corner, but not in it
+  let t = @ui.Tester::new(fn(c) {
+    c.column(pad=20.0, fn() {
+      c.box(dir=Row, w=Px(236.0), h=Px(52.0), pl=12.0, pr=10.0, align=ACenter, bg=0xEEEEEEFFL, radius=16.0, fn() {
+        c.box(w=Fill(1.0), fn() { c.text("build.log", size=13.0) |> ignore }) |> ignore
+        c.box(w=Px(22.0), h=Px(22.0), bg=0x3366FFFFL, radius=11.0, fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  })
+  t.draw()
+  assert_eq(t.corner_faults(), [])
+  // the same × put at the top right by the layout (the row's items at its start, 10 from the top and the right): the
+  // corner rule holds, and the card's corner of 16 is not the 21 it wants
+  let t = @ui.Tester::new(fn(c) {
+    c.column(pad=20.0, fn() {
+      c.box(dir=Row, w=Px(236.0), h=Px(52.0), pl=12.0, pr=10.0, pt=10.0, align=AStart, bg=0xEEEEEEFFL, radius=16.0, fn() {
+        c.box(w=Fill(1.0), fn() { c.text("build.log", size=13.0) |> ignore }) |> ignore
+        c.box(w=Px(22.0), h=Px(22.0), bg=0x3366FFFFL, radius=11.0, fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  })
+  t.draw()
+  let faults = t.corner_faults()
+  assert_eq(faults.length(), 1)
+  assert_true(faults[0].contains("wants corner 21"))
+}

@@ -47,6 +47,13 @@ pub fn Tester::corner_faults(self : Tester) -> Array[String] {
     let a = c.nodes[p]
     let ra = a.corner()
     let rb = b.corner()
+    // a whole circle or a capsule (its corner half its shorter side: an avatar, a switch's knob, a dot, a ×) is round
+    // by what it is; one laid out centred across or along its container (a card's trailing × centred up and down) is
+    // not set in a corner, however near one it comes: only one its layout puts at a corner keeps the corner rule
+    let round = rb >= dmin(b.fw, b.fh) / 2.0 - 0.5
+    if round && c.centred_in(i, p) {
+      continue
+    }
     let l = b.x - a.x
     let t = b.y - a.y
     let r = a.x + a.fw - (b.x + b.fw)
@@ -58,10 +65,8 @@ pub fn Tester::corner_faults(self : Tester) -> Array[String] {
       // (flush in the corner of what cuts it is still a fault: a cut is a rectangle, the container's corner does not
       // round what lies in it; it is let be once the cut follows the corner, mbui#42)
       let even = (dx - dy).abs() <= 0.5
-      // a whole circle or a capsule (its corner half its shorter side: an avatar, a switch's knob, a dot) is round by
-      // what it is: it is the container whose corner follows it (ui-panels.md: 外圆角 = 距离 + 半高), the fault the
-      // container's when it does not
-      let round = rb >= dmin(b.fw, b.fh) / 2.0 - 0.5
+      // a round one at a corner: it is the container whose corner follows it (ui-panels.md: 外圆角 = 距离 + 半高), the
+      // fault the container's when it does not
       let concentric = (rb - (ra - dmax(dx, dy))).abs() <= 0.5
       if !(even && concentric) {
         let corner = ["top left", "top right", "bottom left", "bottom right"][k]
@@ -118,4 +123,23 @@ fn Ctx::words_cut(self : Ctx, i : Int) -> String? {
     count += 1
   }
   Some(sb.to_string())
+}
+
+///|
+/// Whether node `i` is laid out centred, across or along, by something between it and its container `p` (a row that
+/// centres what it holds up and down, a column that centres it side to side, either centring along its length).
+fn Ctx::centred_in(self : Ctx, i : Int, p : Int) -> Bool {
+  let mut n = i
+  while n >= 0 && n != p {
+    let q = self.nodes[n].parent
+    if q < 0 {
+      break
+    }
+    let pq = self.nodes[q]
+    if pq.align == ACenter || pq.justify == JCenter {
+      return true
+    }
+    n = q
+  }
+  false
 }

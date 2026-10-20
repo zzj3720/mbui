@@ -94,6 +94,7 @@ fn ListState::scroll_to_end(self : ListState) -> Unit {
   self.anchor_off = 1.0e9
   self.pending = 0.0
   self.ease = 0.0
+  self.ease_done = 0.0
   self.stop()
   self.unstretch()
   self.at_end = true
@@ -121,27 +122,66 @@ pub let wheel_ease_ms : Double = 36.0
 fn Ctx::ease_list(self : Ctx, id : Int, d : Double) -> Unit {
   match self.lists.get(id) {
     Some(st) => {
-      st.ease = st.ease + d
+      // what had not come yet, and this notch: eased in from now (said once, as it sets out)
+      st.ease = st.ease - st.ease_done + d
+      st.ease_done = 0.0
+      st.ease_t0 = self.now
       st.last_scroll = self.now
       st.glide = false
+      self.moving(st.ease_mover, st as &Moving)
     }
     None => ()
   }
 }
 
 ///|
-/// What of a wheel's notches comes this frame (Ctx::ease_list): most of what is left, a frame's share of an ease out
-/// over about 120 ms (wheel_ease_ms its time constant).
+/// How much of a wheel's ease of `total` has come `t` ms after it set out: solved for the time (an ease out of
+/// wheel_ease_ms), in whole 1/64 px, all of it from ease_end on. The same at any time whatever frames it went by.
+fn ease_come(total : Double, t : Double) -> Double {
+  if t >= ease_end(total) {
+    total
+  } else {
+    (total * (1.0 - @math.exp(-t / wheel_ease_ms)) * 64.0).round() / 64.0
+  }
+}
+
+///|
+/// When an ease of `total` has all come (ms after it set out): what is left under 1/128 px.
+fn ease_end(total : Double) -> Double {
+  if total.abs() * 128.0 <= 1.0 {
+    0.0
+  } else {
+    wheel_ease_ms * @math.ln(total.abs() * 128.0)
+  }
+}
+
+///|
+/// A wheel's ease is what moves of a list: at rest at its end.
+impl Moving for ListState with rest_at(self, now, frame) {
+  ignore(now)
+  ignore(frame)
+  if self.ease == 0.0 {
+    -1.0
+  } else {
+    self.ease_t0 + ease_end(self.ease)
+  }
+}
+
+///|
+/// What of a wheel's notches has come by this frame (Ctx::ease_list): how much the ease has come to now (ease_come,
+/// solved for the time) less what had come by the last.
 fn Ctx::step_ease(self : Ctx, st : ListState) -> Unit {
   if st.ease == 0.0 {
     return
   }
-  let k = 1.0 - @math.exp(-self.dt / wheel_ease_ms)
-  let take = if (st.ease * (1.0 - k)).abs() < 0.5 { st.ease } else { st.ease * k }
-  st.ease = st.ease - take
-  st.pending = st.pending + take
+  let came = ease_come(st.ease, self.now - st.ease_t0)
+  st.pending = st.pending + (came - st.ease_done)
+  st.ease_done = came
   st.last_scroll = self.now
-  self.request_frame()
+  if came == st.ease {
+    st.ease = 0.0
+    st.ease_done = 0.0
+  }
 }
 
 ///|
@@ -228,6 +268,9 @@ pub fn Ctx::list(
         over_v: 0.0,
         over_t: -1.0,
         ease: 0.0,
+        ease_t0: 0.0,
+        ease_done: 0.0,
+        ease_mover: self.mover_id(),
         vw: 0.0,
         vh: 0.0,
         sel: false,

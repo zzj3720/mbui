@@ -150,16 +150,15 @@ test "desktop: a wheel's notch is eased in, a trackpad's at once; the mouse drag
   let first = t.list_offset()
   assert_true(first > 0.0 && first < 120.0)
   t.settle() |> ignore
-  // (the ease is stepped a frame at a time, not yet solved for the time: what frames it went by can leave a rounding)
-  assert_true((t.list_offset() - 120.0).abs() < 1.0e-9)
+  assert_eq(t.list_offset(), 120.0)
   t.wheel_phase(150.0, 200.0, 40.0, 0)
   t.settle() |> ignore
-  assert_true((t.list_offset() - 160.0).abs() < 1.0e-9)
+  assert_eq(t.list_offset(), 160.0)
   drags.val = false
   t.frame()
   t.drag(150.0, 300.0, 150.0, 100.0)
   t.settle() |> ignore
-  assert_true((t.list_offset() - 160.0).abs() < 1.0e-9)
+  assert_eq(t.list_offset(), 160.0)
 }
 
 ///|
@@ -241,4 +240,45 @@ test "desktop: words of a selectable paragraph are picked by a drag and copied; 
   let (_, y2, _, h2) = t.rect_of("not this one").unwrap()
   t.tap(10.0, y2 + h2 / 2.0)
   assert_eq(t.ctx().selected_text(), "")
+}
+
+///|
+/// A list eased in by a wheel's notch of 120 at its start (desktop: the mouse's wheel).
+fn notched() -> @ui.Tester {
+  let t = @ui.Tester::new(
+    fn(c) {
+      c.list("l", 100, 40.0, fn(i) {
+        c.box(h=Px(40.0), fn() { c.text("row \{i}", wrap=false) |> ignore }) |> ignore
+      })
+      |> ignore
+    },
+    w=300.0,
+    h=400.0,
+  )
+  t.wheel_phase(150.0, 200.0, 120.0, 4)
+  t
+}
+
+///|
+test "a wheel's ease is solved for the time: in frames of 16 ms, of 8, or at once, the same to the bit" {
+  // a moment into its ease, and two frame lengths to go there by
+  let at = @ui.wheel_ease_ms * 1.5
+  let long_frame = @ui.drag_step_ms
+  let short_frame = @ui.drag_step_ms / 2.0
+  let sixteen = notched()
+  let eight = notched()
+  let once = notched()
+  let start = sixteen.time()
+  while sixteen.time() + long_frame <= start + at {
+    sixteen.frame(ms=long_frame)
+  }
+  sixteen.frame(ms=start + at - sixteen.time())
+  while eight.time() + short_frame <= start + at {
+    eight.frame(ms=short_frame)
+  }
+  eight.frame(ms=start + at - eight.time())
+  once.frame(ms=at)
+  assert_true(once.list_offset() > 0.0 && once.list_offset() < 120.0)
+  assert_eq(sixteen.list_offset(), once.list_offset())
+  assert_eq(eight.list_offset(), once.list_offset())
 }

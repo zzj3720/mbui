@@ -292,6 +292,8 @@ pub fn Tester::frame(self : Tester, ms? : Double = 16.0) -> Unit {
   }
   on_frame(self.w, self.h, self.fake.scale, self.fake.time)
   self.frames = self.frames + 1
+  // what the outside the test stands for has said meanwhile, posted for the next frame (messages.mbt)
+  frame_ended_outside()
 }
 
 ///|

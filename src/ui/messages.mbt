@@ -40,11 +40,25 @@ let messages_handed : Ref[Int] = Ref::new(0)
 let tape : Ref[Array[String]?] = Ref::new(None)
 
 ///|
+/// What stands for the outside in a Tester (Tester::between_frames), told as each frame ends.
+let between_frames : Ref[(() -> Unit)?] = Ref::new(None)
+
+///|
 fn messages_reset() -> Unit {
   fake_posted.clear()
   post_wakes.val = 0
   messages_handed.val = 0
   tape.val = None
+  between_frames.val = None
+}
+
+///|
+/// A frame of a Tester's ended: the outside it stands for says what has come by now (Tester::between_frames).
+fn frame_ended_outside() -> Unit {
+  match between_frames.val {
+    Some(f) => f()
+    None => ()
+  }
 }
 
 ///|
@@ -166,6 +180,22 @@ fn posted_left() -> String {
 /// is left untaken.
 pub fn Tester::post(self : Tester, channel : String, json : String, bytes? : Bytes) -> Unit {
   fake_post(self.fake, channel, json, bytes)
+}
+
+///|
+/// What stands for the outside in this test (a kept conversation with a core given again: an app's replay): `f` is
+/// told as each frame ends, and posts what has come by then (`post`), as a real core's answers come between two
+/// frames; the next frame takes them. It asks for no frame itself: a post asks for the one that takes it.
+pub fn Tester::between_frames(self : Tester, f : () -> Unit) -> Unit {
+  ignore(self)
+  between_frames.val = Some(f)
+}
+
+///|
+/// How many messages are posted and not taken by a frame yet.
+pub fn Tester::posted(self : Tester) -> Int {
+  ignore(self)
+  fake_posted.length()
 }
 
 ///|

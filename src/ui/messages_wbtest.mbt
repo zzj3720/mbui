@@ -138,3 +138,37 @@ test "panic assert_idle with a message posted that no frame took" {
   t.post("test.a", "1")
   t.assert_idle()
 }
+
+///|
+test "the outside a test stands for posts after a frame what came by then: the next frame takes it" {
+  let got : Array[String] = []
+  on_message("test.a", fn(j, _) { got.push(j) })
+  // an ask made in a frame, answered as the frame ends (a core that answers at once)
+  let asked : Array[String] = []
+  let t = Tester::new(
+    fn(c) {
+      if c.messages_taken() == 0 && got.length() == 0 && asked.length() == 0 {
+        asked.push("q")
+      }
+      c.text(got.join(",")) |> ignore
+    },
+    w=100.0,
+    h=100.0,
+  )
+  t.between_frames(fn() {
+    for q in asked {
+      t.post("test.a", "answer to " + q)
+    }
+    asked.clear()
+  })
+  // the ask was made in the first frame, before the outside was there: posted as the next frame ends, not in it
+  t.frame(ms=0.0)
+  assert_eq(got, [])
+  assert_eq(t.posted(), 1)
+  assert_true(t.fake.wants)
+  // taken as the frame after begins
+  t.frame(ms=0.0)
+  assert_eq(got, ["answer to q"])
+  assert_eq(t.posted(), 0)
+  t.assert_idle()
+}

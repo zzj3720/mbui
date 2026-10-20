@@ -741,8 +741,8 @@ fn Ctx::wake_at_time(self : Ctx, t : Double, later? : Bool = false) -> Unit {
 }
 
 ///|
-/// True when the host wants output that is the same on every run (screenshot
-/// comparisons): views leave out clocks and timings.
+/// True when the host wants output that is the same on every run (screenshot comparisons): a run's clock its own
+/// (the host's), what the frames log says. Nothing draws or moves otherwise by it (detlint's stable-mode).
 pub fn Ctx::stable(self : Ctx) -> Bool {
   ignore(self)
   bench.mode < 0

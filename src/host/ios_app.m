@@ -122,7 +122,9 @@ static void run_script_step(int step);
   mb_render_set_size(s.width, s.height, scale);
   self.wantFrame = NO;
   double t0 = frames_drawn == 0 ? mb_now_ms() : 0;
-  mb_cb.frame(s.width, s.height, scale, mb_now_ms());
+  // the frame's time is the display's: when this frame will be on screen (the display link's target, on
+  // CACurrentMediaTime's clock as the touches' times are), as Android's is its vsync's, not when it happens to be built
+  mb_cb.frame(s.width, s.height, scale, l.targetTimestamp * 1000.0);
   if (frames_drawn == 0)
     say([NSString stringWithFormat:@"ios: first frame %.0fx%.0f @%.0fx in %.0f ms", s.width, s.height, scale, mb_now_ms() - t0]);
   frames_drawn++;

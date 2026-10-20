@@ -1,7 +1,8 @@
 # (bench-corners, not for main) main's renderer and this branch's in the same job, alternately: each draw's time
 name: bench-ab
 on:
-  workflow_dispatch:
+  push:
+    branches: [bench-corners-poly]
 env:
   MOON_HOME: ${{ github.workspace }}/../.moon
 jobs:

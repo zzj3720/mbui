@@ -225,11 +225,14 @@ fn Stream::hand_over(self : Stream, ts : Double) -> Unit {
 
 ///|
 /// Frame `ts` let go here (before a key frame, nothing to decode it): said as the next frame begins, the frame that
-/// takes it asked for unless this one is still to take it.
+/// takes it asked for unless this one is still to take it. One let go in a frame that took its events already waits
+/// for the next frame's start (streams_frame_start): that frame is owed now (Ctx::owe_next).
 fn Stream::let_go(self : Stream, ts : Double) -> Unit {
   self.own.push("d \{ts}")
   let c = g()
-  if !(in_frame.val && self.taken != c.frame_no) {
+  if in_frame.val && self.taken == c.frame_no {
+    c.owe_next()
+  } else if !in_frame.val {
     c.read_changed("stream \{self.id}'s frame \{ts} let go")
   }
 }

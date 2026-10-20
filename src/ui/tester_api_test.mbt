@@ -231,3 +231,21 @@ test "a scripted run that waits for a call never answered fails within its timeo
   let log = t.drive("timeout 200\nanswered drive.read\nexit")
   assert_true(log.iter().any(fn(l) { l.contains("DRIVE FAIL") }), msg=log.join("\n"))
 }
+
+///|
+test "a scripted run finds what it waits for however many others end before it looks (300 pictures in one frame)" {
+  let srcs = Array::makei(300, fn(k) { "p\{k}.jpg" })
+  let t = @ui.Tester::new(
+    fn(c) {
+      c.column(fn() {
+        for s in srcs {
+          c.image(s, w=Px(2.0), h=Px(2.0)) |> ignore
+        }
+      })
+      |> ignore
+    },
+    images=srcs.map(fn(s) { (s, 40, 30) }),
+  )
+  let log = t.drive("decoded p0.jpg\nexit")
+  assert_true(log.iter().any(fn(l) { l.has_prefix("DRIVE ok decoded p0.jpg") }), msg=log.join("\n"))
+}

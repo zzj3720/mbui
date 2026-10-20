@@ -130,7 +130,7 @@ fn drive_start(script : String, dir : String, settles? : Bool = true) -> Unit {
     gt0: 0.0,
     gms: 0.0,
     shot_at: -1.0,
-    mark: 0,
+    mark: runtime().outside_ended(),
     seen_frame: -1,
     calm: 0,
     settles,

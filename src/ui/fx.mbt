@@ -148,7 +148,7 @@ pub fn Ctx::unsettled(self : Ctx) -> String {
   }
   if self.wake_waited >= 0.0 {
     why.push(
-      "a wake at \{self.wake_waited.to_int()} ms it waits for" +
+      "a wake in \{(self.wake_waited - self.now).ceil().to_int()} ms it waits for" +
       (match self.wake_by {
         Some(l) => " (by \{l})"
         None => ""

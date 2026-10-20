@@ -127,7 +127,7 @@ pub fn Tester::assert_idle(self : Tester) -> Unit {
     why.push("a frame asked for between frames")
   }
   if c.wake_waited >= 0.0 {
-    why.push("a wake at \{c.wake_waited.to_int()} ms" + by_of(c.wake_by))
+    why.push("a wake in \{(c.wake_waited - c.now).ceil().to_int()} ms" + by_of(c.wake_by))
   }
   let rt = fx.val.unsettled()
   if rt != "" {

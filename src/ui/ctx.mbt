@@ -195,8 +195,8 @@ pub struct Ctx {
   mut motion_unstarted : Bool
   /// inputs came before this frame (a frame more, for what they changed late in it)
   mut took_input : Bool
-  /// what the next build reads of this frame's layout moved (words_of): a frame more, for what is placed from it; the
-  /// last that moved (its words' key)
+  /// what the view read changed as the frame was built or laid out (Ctx::read_changed: words laid out elsewhere, the
+  /// focus given, a list scrolled): built again in this frame (frame_body); the last that changed (what it is)
   mut read_back_moved : Bool
   mut read_back_key : String
   mut nav_rest : Double
@@ -256,6 +256,8 @@ pub struct Ctx {
   // being built, the dismissals asked for since, where a press went down since the last frame
   mut layers : Array[Layer]
   mut last_layers : Array[Layer]
+  /// the layers this frame has given the focus as they opened (their ids): once a frame, at the first build they are in
+  layers_opened : Array[Int]
   mut layer_cur : Int
   dismissals : Map[Int, Dismiss]
   layer_return : Map[Int, Int]
@@ -374,6 +376,7 @@ fn Ctx::new() -> Ctx {
     group_cur: 0,
     layers: [],
     last_layers: [],
+    layers_opened: [],
     layer_cur: 0,
     dismissals: Map::new(),
     layer_return: Map::new(),
@@ -863,6 +866,20 @@ pub fn Ctx::pressed(self : Ctx, id : Int) -> Bool {
 ///|
 /// Whether a frame is being built now (on_frame): a frame asked for outside one is the host's to be told of.
 let in_frame : Ref[Bool] = Ref::new(false)
+
+///|
+/// What the view reads changed (`what`: said by an unsettled frame that never stops changing it): while the frame is
+/// built or laid out, it is built again in it before it is drawn (frame_body), so no frame shows the state as it
+/// was; between frames (a host's callback), the next frame builds from it.
+#callsite(autofill(loc))
+fn Ctx::read_changed(self : Ctx, what : String, loc~ : SourceLoc) -> Unit {
+  if building.val {
+    self.read_back_moved = true
+    self.read_back_key = what
+  } else {
+    self.request_frame(loc~)
+  }
+}
 
 ///|
 #callsite(autofill(loc))

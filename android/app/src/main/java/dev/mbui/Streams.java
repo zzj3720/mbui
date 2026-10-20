@@ -128,10 +128,15 @@ final class Streams {
         }
     }
 
+    // MBUI_STREAM_THROW_SHOW=N (a test's, android-streams.sh thrown): the Nth show() throws, for the host to clear
+    private static final String throwShow = System.getenv("MBUI_STREAM_THROW_SHOW");
+    private static int shows;
+
     static void show(int id, double ts) {
         dropSurfaces();
         Stream s = streams.get(id);
         if (s != null) s.show(ts);
+        if (throwShow != null && throwShow.equals(String.valueOf(++shows))) throw new RuntimeException("MBUI_STREAM_THROW_SHOW: show " + shows);
     }
 
     static void close(int id) {

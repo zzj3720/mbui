@@ -94,6 +94,10 @@ struct FakeHost {
   view_stills : Map[Int, Array[Bytes]]
   /// how each view stood as the run recorded the host's saying it (view_info: its state and ten numbers)
   view_infos : Map[Int, (Int, FixedArray[Double])]
+  /// a site view's page as the run recorded the host's saying it (view_site_state's JSON), by view; and the bodies of
+  /// the requests its page made, by (view, request) (view_site_body)
+  site_states : Map[Int, String]
+  site_bodies : Map[(Int, Int), Bytes]
 }
 
 ///|
@@ -787,15 +791,45 @@ fn h_view_site_next(id : Int) -> String {
         ""
       }
     }
-    None => @host.view_site_next(id)
+    None => {
+      let e = @host.view_site_next(id)
+      // (what the page asked of its host, on a run's record: Tester::view_said gives it again)
+      if e != "" {
+        site_told(id, e)
+      }
+      e
+    }
   }
 }
 
 ///|
+/// A site view's page's event (a request, one let go, a link left by: view_site_next's JSON), told to the app's
+/// tracer and the tape as `{"site":{"view":N,"event":E}}`.
+fn site_told(id : Int, event : String) -> Unit {
+  guard views_tracer.val is Some(_) || taping() else { return }
+  let e : Json = @json.parse(event) catch { _ => Json::string(event) }
+  view_say({ "site": Json::object({ "view": Json::number(id.to_double()), "event": e }) })
+}
+
+///|
+/// What was last told of each site view's page (view_site_state's JSON), so that it is told as it changes.
+let sites_told_state : Map[Int, String] = {}
+
+///|
 fn h_view_site_body(id : Int, req : Int) -> Bytes {
   match fake.val {
-    Some(_) => Bytes::new(0)
-    None => @host.view_site_body(id, req)
+    // as the run recorded it (Tester::view_said); else none
+    Some(f) => f.site_bodies.get((id, req)).unwrap_or(Bytes::new(0))
+    None => {
+      let b = @host.view_site_body(id, req)
+      if views_tracer.val is Some(_) || taping() {
+        view_say({
+          "sitebody": Json::object({ "view": Json::number(id.to_double()), "req": Json::number(req.to_double()) }),
+          "b": Json::string(hex_of(b)),
+        })
+      }
+      b
+    }
   }
 }
 
@@ -827,8 +861,20 @@ fn h_view_site_end(id : Int, req : Int, error : String) -> Unit {
 ///|
 fn h_view_site_state(id : Int) -> String {
   match fake.val {
-    Some(_) => "{\"path\":\"/\",\"back\":false,\"forward\":false,\"loading\":false,\"title\":\"\"}"
-    None => @host.view_site_state(id)
+    // as the run recorded the host's saying it (Tester::view_said); not said: at its start, loaded, untitled
+    Some(f) =>
+      f.site_states.get(id).unwrap_or(
+        "{\"path\":\"/\",\"back\":false,\"forward\":false,\"loading\":false,\"title\":\"\"}",
+      )
+    None => {
+      let st = @host.view_site_state(id)
+      if st != "" && (views_tracer.val is Some(_) || taping()) && sites_told_state.get(id) != Some(st) {
+        sites_told_state[id] = st
+        let j : Json = @json.parse(st) catch { _ => Json::string(st) }
+        view_say({ "sitestate": Json::object({ "view": Json::number(id.to_double()), "state": j }) })
+      }
+      st
+    }
   }
 }
 
@@ -888,7 +934,9 @@ let views_told_text : Map[(Int, Int), String] = {}
 ///|
 /// What a real host says of its native views from now on given to `line`, a JSON object a time, as it changes: how a
 /// view stands (`{"info":{"view":N,"state":S,"at":[view_info's ten numbers]}}`), a video's frames' times and a grab's
-/// state (`{"view":{"view":N,"what":W,"text":T}}`) and a frame grabbed, its bytes in hex (`{"still":{"view":N},"b":HEX}`): what a run keeps beside its other messages (its own clock added), for a
+/// state (`{"view":{"view":N,"what":W,"text":T}}`) and a frame grabbed, its bytes in hex (`{"still":{"view":N},"b":HEX}`);
+/// a site view's page's events (`{"site":…}`), its requests' bodies (`{"sitebody":…}`) and where it is
+/// (`{"sitestate":…}`): what a run keeps beside its other messages (its own clock added), for a
 /// Tester to be told again (Tester::view_said). Under a Tester, nothing.
 pub fn trace_views(line : (Map[String, Json]) -> Unit) -> Unit {
   views_tracer.val = Some(line)

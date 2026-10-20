@@ -34,6 +34,7 @@ fn reset_globals() -> Unit {
   text_table.val = None
   inputs_since.val = false
   in_frame.val = false
+  messages_reset()
   image_cache.clear()
   outside_tickets.clear()
   views_told.clear()
@@ -86,6 +87,7 @@ fn leaked_state() -> Array[String] {
   check("words", words_marks.length() + words_kept.length() + words_sel.length())
   check("list_counts", list_counts.length())
   check("drawing", dr.entries.length() + dr.overlay.length() + dr.carry.length())
+  check("messages", fake_posted.length())
   out
 }
 

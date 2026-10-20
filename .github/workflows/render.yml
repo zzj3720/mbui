@@ -35,13 +35,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, mbui-render]
     timeout-minutes: 20
-    env:
-      MOON_HOME: ${{ runner.temp }}/moon
     steps:
       - uses: actions/checkout@v4
       - name: Install MoonBit (the latest, as the other jobs)
         run: |
+          export MOON_HOME=$RUNNER_TEMP/moon
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | MOON_HOME=$MOON_HOME bash
+          echo "MOON_HOME=$MOON_HOME" >> $GITHUB_ENV
           echo "$MOON_HOME/bin" >> $GITHUB_PATH
       - name: A Tester's draw list drawn offscreen (scripts/render_offscreen.sh)
         run: scripts/render_offscreen.sh

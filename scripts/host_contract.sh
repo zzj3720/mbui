@@ -288,10 +288,16 @@ case $CMD in
         EMU_PORT=${SERIAL#emulator-} APP=kitdemo BENCH=-1 \
           ENV="MBUI_DRIVE_B64=$DRV;MBUI_DONE_DIR=/data/data/$APPID/files/done;MBUI_LOG_FILE=done-app.log" \
           bash scripts/android.sh run
+        # the runner reads the log as it comes only for what it is asked to do (its two `do:`s); the run's end, and
+        # what the run said, are the app's own (its log file): adb logcat's stream on an emulator can stop handing
+        # on lines while the app goes on (seen here: the app's log had its end, the stream had stopped after `do: bad`)
         # (a run that hangs given 3 minutes before it fails, what it said kept: not a wait, the run ends itself)
         timeout 180 $ADB logcat -v brief -e "DRIVE |FATAL EXCEPTION|Fatal signal|ANR in" \
-          | "$PY" scripts/done_runner.py --log $O/done.log --adb "$ADB" --app $APPID $SAID || true
+          | "$PY" scripts/done_runner.py --log $O/done.log --adb "$ADB" --app $APPID --dos 2 $SAID || true
+        # the run's end, as a logcat begun anew finds it (its buffer from the start: not the stream that may have stopped)
+        timeout 180 $ADB logcat -v brief -m 1 -e "DRIVE (PASS|END)|FATAL EXCEPTION|Fatal signal" > /dev/null || true
         $ADB exec-out run-as $APPID cat files/done-app.log > $O/done-app.log 2>/dev/null || true
+        cat $O/done-app.log >> $O/done.log
         $ADB shell dumpsys activity activities 2>/dev/null | grep -aE "ResumedActivity|mFocusedApp" | head -5 >> $O/done.log || true ;;
     esac
     tr -d '\r' < $O/done.log | grep -aE "DRIVE (start|ok done|runner done|FAIL|PASS)|RUNNER did" || true

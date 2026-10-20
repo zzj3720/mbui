@@ -4,10 +4,11 @@ the run's log as it comes (its stdin: the app's output, or adb logcat's), each l
 `DRIVE LOG do: NAME` says it has done NAME as a runner does: NAME's file written in the run's directory as .NAME, then
 renamed NAME, its words what WORDS gives for NAME ("ok" by default). Ends with the run (DRIVE PASS, FAIL or END).
 
-  scripts/done_runner.py --log FILE (--dir DIR | --adb "ADB…" --app APP_ID) [--said NAME=WORDS …]
+  scripts/done_runner.py --log FILE (--dir DIR | --adb "ADB…" --app APP_ID) [--said NAME=WORDS …] [--dos N]
 
 --dir: the directory on this machine; --adb and --app: the app's own files/done on the device, written as the app
-(run-as). Nothing here waits on a time: a line comes or the run ends.
+(run-as). --dos N: ends once it has done N (the rest of the run read from the app's own log, not this stream).
+Nothing here waits on a time: a line comes or the run ends.
 """
 import argparse
 import os
@@ -23,10 +24,12 @@ def main():
     ap.add_argument("--adb")
     ap.add_argument("--app")
     ap.add_argument("--said", action="append", default=[])
+    ap.add_argument("--dos", type=int, default=0)
     a = ap.parse_args()
     said = dict(s.split("=", 1) for s in a.said)
     do = re.compile(r"DRIVE LOG do: (\S+)")
     end = re.compile(r"DRIVE (PASS|FAIL|END)")
+    done = 0
     with open(a.log, "w", encoding="utf-8") as log:
         for raw in sys.stdin.buffer:
             line = raw.decode("utf-8", "replace").rstrip("\r\n")
@@ -46,6 +49,9 @@ def main():
                     subprocess.run(a.adb.split() + ["shell", f"run-as {a.app} sh -c \"{sh}\""], check=True)
                 log.write(f"RUNNER did {name}: {words}\n")
                 log.flush()
+                done += 1
+                if a.dos and done >= a.dos:
+                    break
             if end.search(line):
                 break
 

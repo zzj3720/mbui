@@ -287,6 +287,7 @@ pub fn Ctx::list(
         glide_rest: -1.0,
         glide_left: 0.0,
         built: -1,
+        scroll_asked: (-1, 0, 0.0),
         fling: 0,
         fling_v: 0.0,
         fling_t0: -1.0,
@@ -669,12 +670,14 @@ pub fn Ctx::list_scroll_to(
   offset? : Double = 0.0,
 ) -> Unit {
   match self.lists.get(self.id(key)) {
-    Some(st) => {
+    // (asked again as the frame is built again: done already)
+    Some(st) if st.scroll_asked != (self.frame_no, item, offset) => {
+      st.scroll_asked = (self.frame_no, item, offset)
       st.scroll_to(item)
       st.anchor_off = offset
       self.read_changed("a list scrolled to a row")
     }
-    None => ()
+    _ => ()
   }
 }
 

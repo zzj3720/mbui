@@ -40,6 +40,9 @@ struct ListState {
   mut glide_left : Double
   // the frame it was last built in (one not built is shown by nothing: at rest)
   mut built : Int
+  // the last scroll to a row asked of it (Ctx::list_scroll_to): the frame, the row and the offset (asked again as the
+  // frame is built again, the same: done already)
+  mut scroll_asked : (Int, Int, Double)
   // a fling (scroll.mbt): its kind (0 the desktop's, coasting on `vel`; 1
   // Android's spline; 2 iOS's deceleration), its velocity at the start (px
   // per ms, positive down the list), when it started (-1: at the next

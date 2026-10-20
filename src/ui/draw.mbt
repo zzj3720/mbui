@@ -782,7 +782,7 @@ pub fn Ctx::reduced_motion(self : Ctx) -> Bool {
 
 ///|
 /// Motion reduced (Ctx::reduced_motion), under its old name. A run whose output is to be the same every time (a
-/// screenshot's, Ctx::stable) draws and moves as any run does: its picture is taken at a moment its motions declare.
+/// screenshot's, MBUI_BENCH=-1) draws and moves as any run does: its picture is taken at a moment its motions declare.
 pub fn Ctx::still(self : Ctx) -> Bool {
   self.reduced_motion()
 }

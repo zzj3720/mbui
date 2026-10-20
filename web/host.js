@@ -87,6 +87,8 @@
   // until the app answers. Always from the event loop, never inside a call of the app's (a frame, a read answered).
   // Each frame says at its end how many of its asks the host has not answered and what they are: a run to a declared
   // moment (shot_at) keeps its clock still while any is.
+  // its kinds, named as src/ui/hostcall.mbt's outside_* (this host draws no marks, grabs no frame, has no picker yet)
+  const OUTSIDE_IMAGE = 1, OUTSIDE_VIEW = 2;
   let outside = null, awaiting = 0, why = '';
   const told = new Set();
   H.setOutside = (f) => { outside = f; return true; };
@@ -640,7 +642,7 @@
   const ready = (id, v, state) => {
     if (v.ready || !views.has(id)) return;
     v.ready = true;
-    tell(2, id, state);
+    tell(OUTSIDE_VIEW, id, state);
   };
   H.viewOpen = (kind, arg) => {
     if (kind !== 1 && kind !== 2) return 0;
@@ -674,7 +676,7 @@
         const r = { id: ++v.nextRead, offset, length: 4 << 20 };
         v.reads.push(r);
         v.waiting.set(r.id, r);
-        if (!v.ready) tell(2, id, 0);
+        if (!v.ready) tell(OUTSIDE_VIEW, id, 0);
         H.requestFrame();
       };
       v.ask(0);
@@ -801,7 +803,7 @@
       if (!images.has(id)) return;
       im.state = -1;
     }
-    tell(1, id, im.state);
+    tell(OUTSIDE_IMAGE, id, im.state);
     H.requestFrame();
   }
   H.imageLoad = (src, maxPx) => {
@@ -813,7 +815,7 @@
         const im = images.get(id);
         if (!im || im.state !== 0) return;
         im.state = -1;
-        tell(1, id, -1);
+        tell(OUTSIDE_IMAGE, id, -1);
         H.requestFrame();
       });
     return id;

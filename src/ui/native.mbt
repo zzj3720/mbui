@@ -294,6 +294,7 @@ pub fn NativeView::frames(self : NativeView) -> Array[Double]? {
 /// The video's frame showing at `ms` grabbed whole at its own size, as a PNG (`grabbed` once it is here).
 pub fn NativeView::grab_frame(self : NativeView, ms : Double) -> Unit {
   if self.id != 0 && !self.closed {
+    outside_start(outside_grab, self.id, "a frame of view \{self.id} grabbed")
     h_view_control(self.id, 21, ms)
   }
 }
@@ -305,11 +306,15 @@ pub fn NativeView::grabbed(self : NativeView) -> Bytes? {
   if self.id == 0 {
     return None
   }
-  match h_view_text(self.id, 2) {
+  let got = match h_view_text(self.id, 2) {
     Some("2") => Some(h_view_still(self.id))
     Some("-1") => Some(b"")
     _ => None
   }
+  if got is Some(_) {
+    outside_end(outside_grab, self.id)
+  }
+  got
 }
 
 ///|

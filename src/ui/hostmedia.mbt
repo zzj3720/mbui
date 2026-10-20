@@ -277,7 +277,8 @@ pub fn Tester::shared_out(self : Tester) -> Array[(String, String, String, Bytes
 
 ///|
 /// What a real host said of a native view as a run recorded it (@ui.trace_views' line, as JSON), said again by the
-/// fake host from now on: a video's frames' times or a grab's state (`{"view":{"view":N,"what":W,"text":T}}`: what
+/// fake host from now on: how it stands (`{"info":{"view":N,"state":S,"at":[…]}}`: what view_info answers until it is
+/// said again, over the fake host's own player), a video's frames' times or a grab's state (`{"view":{"view":N,"what":W,"text":T}}`: what
 /// view_text answers until it is said again), or a frame grabbed (`{"still":{"view":N},"b":HEX}`: its grab ready, the
 /// bytes what the next view_still gives). What is not said is not known (NativeView::frames None, no frame grabbed).
 /// False for a line that is neither.
@@ -290,6 +291,22 @@ pub fn Tester::view_said(self : Tester, line : String) -> Bool {
     }
   }
   match j {
+    Object(m) if m.get("info") is Some(Object(v)) =>
+      match (num(v, "view"), num(v, "state"), v.get("at")) {
+        (Some(id), Some(state), Some(Array(xs))) if xs.length() == 10 => {
+          let at = FixedArray::make(10, 0.0)
+          for i, x in xs {
+            at[i] = match x {
+              Number(n, ..) => n
+              _ => 0.0
+            }
+          }
+          self.fake.view_infos[id] = (state, at)
+          self.fake.wants = true
+          true
+        }
+        _ => false
+      }
     Object(m) =>
       match (m.get("view"), m.get("still")) {
         (Some(Object(v)), _) =>

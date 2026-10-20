@@ -153,6 +153,14 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
       replay_input(self.fake, line)
       continue
     }
+    // what the host said of its views, said again at its place (hostcall.mbt: view_say)
+    match line.find("VIEWSAID ") {
+      Some(i) => {
+        self.view_said(line.view(start_offset=i + 9).to_owned()) |> ignore
+        continue
+      }
+      None => ()
+    }
     // what came from outside, posted again at its place: the frame after it takes it (messages.mbt)
     if is_message_line(line) {
       replay_message(self.fake, line)

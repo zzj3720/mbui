@@ -229,3 +229,25 @@ test "corners: the container's own fill drawn on over its corner is its shape, n
   t.draw()
   assert_eq(t.corner_faults().length(), 2)
 }
+
+///|
+test "corners: a round thing centred in a capsule sits in its round end" {
+  // a switch's knob centred up and down in its track (44×26, corner 13), 5 from the left, 3 from top and bottom: a
+  // fault, centred or not
+  let knob = fn(c : @ui.Ctx, side : Double, pad : Double) {
+    c.column(pad=20.0, fn() {
+      c.box(dir=Row, w=Px(44.0), h=Px(26.0), pl=pad, align=ACenter, bg=0xDDDDDDFFL, radius=13.0, fn() {
+        c.box(w=Px(side), h=Px(side), bg=0xFFFFFFFFL, radius=side / 2.0, fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  }
+  let t = @ui.Tester::new(fn(c) { knob(c, 20.0, 5.0) })
+  t.draw()
+  assert_eq(t.corner_faults().length(), 2)
+  // a knob of 22, 2 from every edge: concentric with the track's end, no fault
+  let t = @ui.Tester::new(fn(c) { knob(c, 22.0, 2.0) })
+  t.draw()
+  assert_eq(t.corner_faults(), [])
+}

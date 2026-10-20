@@ -55,15 +55,27 @@ pub fn smooth_middle(radius : Double) -> Double {
 /// `r` (at most the shorter half) drawn `s` smooth, |x|^n + |y|^n = R^n about the corner's centre with n from 2 to 2^1.5
 /// and R from r to 1.25 r as `s` goes from 0 to 1. On the curve it is 0 exactly; off it, the curve's own value over how
 /// fast that grows there (the distance along its normal, to first order: what an edge's half pixel of cover needs). At
-/// s = 0 it is a round corner's, as every renderer drew one before. The renderers' `mb_sd_corner` (src/host/corner.sl).
-pub fn sd_corner(px : Double, py : Double, hx : Double, hy : Double, r : Double, s : Double) -> Double {
+/// s = 0 it is a round corner's, as every renderer drew one before. Only within `band` of the curve is it worked out:
+/// the curve lies between the circle of R and that of R 2^(1/2 - 1/n) (under 1.107 R), and further than `band` inside the
+/// one or outside the other the round distance is given, of the same sign and at least `band` (the renderers pass what
+/// their cover, edge or blur reaches; by default everywhere). The renderers' `mb_sd_corner` (src/host/corner.sl).
+pub fn sd_corner(
+  px : Double,
+  py : Double,
+  hx : Double,
+  hy : Double,
+  r : Double,
+  s : Double,
+  band? : Double = 1.0e30,
+) -> Double {
   let rr = dmin(r * (1.0 + (smooth_scale - 1.0) * s), dmin(hx, hy))
   let qx = px.abs() - hx + rr
   let qy = py.abs() - hy + rr
   let mx = dmax(qx, 0.0)
   let my = dmax(qy, 0.0)
-  if s <= 0.0 || dmin(mx, my) <= 0.0 {
-    return (mx * mx + my * my).sqrt() + dmin(dmax(qx, qy), 0.0) - rr
+  let l = (mx * mx + my * my).sqrt()
+  if s <= 0.0 || dmin(mx, my) <= 0.0 || l <= rr - band || l >= 1.107 * rr + band {
+    return l + dmin(dmax(qx, qy), 0.0) - rr
   }
   let n = 2.0 + (smooth_exponent - 2.0) * s
   let hi = dmax(mx, my)

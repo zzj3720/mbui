@@ -179,12 +179,16 @@
   // The signed distance of p (from a box's middle) from that box, hs its half sides, its corners r (at most the shorter
   // half) s smooth: |x|^n + |y|^n = R^n about each corner's centre, n from 2 to 2^1.5 and R from r to 1.25 r as s goes
   // from 0 to 1. 0 on the curve; off it, the curve's value over how fast it grows there (along its normal, to first
-  // order). At s = 0 a round corner's, as before.
-  float mb_sd_corner(float2 p, float2 hs, float r, float s) {
+  // order). At s = 0 a round corner's, as before. Only within `band` of the curve is it worked out (two powers a pixel):
+  // the curve lies between the circle of R and that of R 2^(1/2 - 1/n) (under 1.107 R), and further than `band` inside
+  // the one or outside the other the round distance has its sign and is as far, which is all a cover, an edge `band`
+  // wide or a shadow that blurred says of it.
+  float mb_sd_corner(float2 p, float2 hs, float r, float s, float band) {
     float R = min(r * (1.0 + 0.25 * s), min(hs.x, hs.y));
     float2 q = abs(p) - hs + R;
     float2 m = max(q, 0.0);
-    if (s <= 0.0 || min(m.x, m.y) <= 0.0) return length(m) + min(max(q.x, q.y), 0.0) - R;
+    float l = length(m);
+    if (s <= 0.0 || min(m.x, m.y) <= 0.0 || l <= R - band || l >= 1.107 * R + band) return l + min(max(q.x, q.y), 0.0) - R;
     float n = 2.0 + 0.8284271247461903 * s;
     float hi = max(m.x, m.y);
     float t = min(m.x, m.y) / hi;
@@ -193,16 +197,16 @@
     float u = pow(1.0 + tn, 1.0 / n);
     return (hi * u - R) * (1.0 + tn) / (u * sqrt(1.0 + tn1 * tn1));
   }
-  // A box's own corners: r at most its shorter half, as smooth as its size has room for.
-  float mb_sd_box(float2 p, float2 hs, float r) {
+  // A box's own corners: r at most its shorter half, as smooth as its size has room for (band: mb_sd_corner's).
+  float mb_sd_box(float2 p, float2 hs, float r, float band) {
     float room = min(hs.x, hs.y);
     float rr = min(r, room);
-    return mb_sd_corner(p, hs, rr, mb_smoothness(rr, room));
+    return mb_sd_corner(p, hs, rr, mb_smoothness(rr, room), band);
   }
   // corner.sl end
   float sd_rr(vec2 p, vec4 r, float rad) {
     vec2 hs = r.zw * 0.5;
-    return mb_sd_box(p - r.xy - hs, hs, rad);
+    return mb_sd_box(p - r.xy - hs, hs, rad, 1e9);
   }
   // a notch cut into the top edge (scene.mbt 21-23): a circle about the top's middle (pad.y below it, pad.z its
   // radius), met by the edge through fillets (pad.w): the rounded intersection with what is outside the circle
@@ -237,7 +241,7 @@
     vec2 m = c.xy + hs;
     float rr = p.x < m.x ? (p.y < m.y ? r.x : r.w) : (p.y < m.y ? r.y : r.z);
     float ss = p.x < m.x ? (p.y < m.y ? s.x : s.w) : (p.y < m.y ? s.y : s.z);
-    float d = mb_sd_corner(p - m, hs, min(rr, min(hs.x, hs.y)), ss);
+    float d = mb_sd_corner(p - m, hs, min(rr, min(hs.x, hs.y)), ss, 1.0 + 2.0 / scale);
     return clamp(0.5 - d * scale, 0.0, 1.0);
   }
   // what it shows at p, as if uncut
@@ -291,7 +295,9 @@
     }
     vec2 hs = v_rect.zw * 0.5;
     vec2 c = v_rect.xy + hs;
-    float d = mb_sd_box(p - c, hs, v_p.x);
+    // worked out as near the curve as its cover, its edge or its blur reaches
+    float band = 1.0 + 2.0 / u_scale + (kind == 2 ? max(v_p.w, 0.5) : max(v_p.z, 0.0));
+    float d = mb_sd_box(p - c, hs, v_p.x, band);
     if (kind == 0 || kind == 5) d = notch_cut(d, p, v_rect, v_pad);
     if (kind == 4) {
       vec2 uv = v_c2.xy + clamp((p - v_rect.xy) / v_rect.zw, 0.0, 1.0) * v_c2.zw;
@@ -303,7 +309,7 @@
       float a = 1.0 - smoothstep(-b, b, d);
       // glass's: only outside its box (c2.y above it)
       if (v_c2.x > 0.5) {
-        float db = mb_sd_box(p - c + vec2(0.0, v_c2.y), hs, v_p.x);
+        float db = mb_sd_box(p - c + vec2(0.0, v_c2.y), hs, v_p.x, band);
         a *= clamp(0.5 + db * u_scale, 0.0, 1.0);
       }
       o = vec4(col.rgb, 1.0) * col.a * a;

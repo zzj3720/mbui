@@ -134,3 +134,24 @@ test "det_pow: the power by + - × ÷ alone, as @math.pow's within a few units i
   }
   assert_eq(det_pow(0.0, 2.0), 0.0)
 }
+
+///|
+test "worked out within a band of the curve only: the same there; beyond it, of the same sign and at least as far" {
+  for r in [20.0, 6.0] {
+    for j in 0..=40 {
+      let (x, y, nx, ny) = on_curve(r, 1.0, 1.5707963267948966 * j.to_double() / 40.0)
+      for k in -40..=40 {
+        let off = k.to_double() / 4.0
+        let px = x + off * nx
+        let py = y + off * ny
+        let exact = sd_corner(px, py, 300.0, 200.0, r, 1.0)
+        let banded = sd_corner(px, py, 300.0, 200.0, r, 1.0, band=2.0)
+        if exact.abs() < 2.0 {
+          assert_eq(banded, exact)
+        } else {
+          assert_true(banded * exact > 0.0 && banded.abs() >= 2.0, msg="\{r} \{j} \{off}: \{banded}, \{exact}")
+        }
+      }
+    }
+  }
+}

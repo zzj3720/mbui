@@ -122,6 +122,10 @@ fn start() -> Unit {
       }
       if acked.val == total() {
         @ui.log("STREAM done")
+        // (a host's check: the run's own end, MBUI_STREAM_EXIT=1)
+        if @ui.env("MBUI_STREAM_EXIT") == "1" {
+          @host.exit(0)
+        }
       }
       match stream.val {
         Some(s) => feed(s)

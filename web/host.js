@@ -62,8 +62,10 @@
     clock = frames * (1000 / 60);
     H.requestFrame();
   }
+  // (no frame before the host knows what it decodes: H.run)
+  let known = false;
   H.requestFrame = () => {
-    if (!pending && cb && window.__done === undefined && window.__shot === undefined) {
+    if (!pending && cb && known && window.__done === undefined && window.__shot === undefined) {
       pending = true;
       requestAnimationFrame(tick);
     }
@@ -926,9 +928,15 @@
   const STREAM_TEX = 4194304;
   const streams = new Map();
   let nextStream = 0;
-  const hasVideoDecoder = typeof VideoDecoder !== 'undefined';
+  // (a VideoDecoder that takes no H.264, as Chromium's own build has: asked once as the page loads, the app's first
+  // frame held until it is answered, so that h264_here is the same from the app's start)
+  let hasVideoDecoder = false;
+  const h264Asked = typeof VideoDecoder === 'undefined'
+    ? Promise.resolve()
+    : VideoDecoder.isConfigSupported({ codec: 'avc1.42C01F', optimizeForLatency: true })
+      .then((r) => { hasVideoDecoder = !!r.supported; }, () => {});
   H.h264Here = () => (hasVideoDecoder ? 1 : 0);
-  const num = (v) => (Number.isInteger(v) ? String(v) : String(v));
+  const num = (v) => String(v);
   function say(s, e) {
     if (s.closed) return;
     s.events.push(e);
@@ -1407,14 +1415,18 @@
 
   H.run = (title, frame, pointer, wheel, key, text) => {
     document.title = title;
-    cb = { frame, pointer, wheel, key, text };
-    window.__mb = cb;
     canvas = document.getElementById('c');
     ta = document.getElementById('ime');
     setupGL();
     setupInput();
+    cb = { frame, pointer, wheel, key, text };
+    window.__mb = cb;
     resize();
-    H.requestFrame();
+    // (the app's first frame once the host knows what it decodes: h264Asked)
+    h264Asked.then(() => {
+      known = true;
+      H.requestFrame();
+    });
   };
 
   // ---- mbui-render (src/render, scripts/render_web.mjs): no frames, no input ----

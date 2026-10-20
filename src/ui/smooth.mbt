@@ -77,13 +77,49 @@ pub fn sd_corner(
   if s <= 0.0 || dmin(mx, my) <= 0.0 || l <= rr - band || l >= 1.107 * rr + band {
     return l + dmin(dmax(qx, qy), 0.0) - rr
   }
-  let n = 2.0 + (smooth_exponent - 2.0) * s
   let hi = dmax(mx, my)
   let t = dmin(mx, my) / hi
+  if s >= 1.0 {
+    return hi * smooth_a(t) - rr * smooth_b(t)
+  }
+  let n = 2.0 + (smooth_exponent - 2.0) * s
   let tn1 = det_pow(t, n - 1.0)
   let tn = tn1 * t
   let u = det_pow(1.0 + tn, 1.0 / n)
   (hi * u - rr) * (1.0 + tn) / (u * (1.0 + tn1 * tn1).sqrt())
+}
+
+///|
+/// The wholly smooth corner's two factors (sd_corner's (1 + tⁿ) / √(1 + t^(2n-2)), and that over (1 + tⁿ)^(1/n), at
+/// n = 2^1.5) as polynomials in t over [0, 1] (least squares; within 2e-5 of them): what the renderers work out for
+/// nearly every corner in place of two powers a pixel, and so this too.
+fn smooth_a(t : Double) -> Double {
+  1.0000098 +
+  t *
+  (-0.00106380035 +
+  t *
+  (0.0390446602 +
+  t *
+  (1.21491043 +
+  t *
+  (-1.49650831 +
+  t *
+  (1.90947795 + t * (-2.77580972 + t * (2.11536546 + t * -0.591224537)))))))
+}
+
+///|
+fn smooth_b(t : Double) -> Double {
+  1.00001404 +
+  t *
+  (-0.00136262193 +
+  t *
+  (0.039570688 +
+  t *
+  (0.648050719 +
+  t *
+  (-0.725922772 +
+  t *
+  (0.327888394 + t * (-0.914717465 + t * (1.13728689 + t * -0.403984265)))))))
 }
 
 ///|

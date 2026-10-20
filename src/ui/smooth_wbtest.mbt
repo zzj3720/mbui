@@ -24,13 +24,14 @@ fn on_curve(r : Double, s : Double, a : Double) -> (Double, Double, Double, Doub
 ///|
 test "a smooth corner is the web's superellipse: |x|^n + |y|^n = 1 over the radius a quarter longer" {
   assert_true((smooth_exponent * smooth_exponent - 8.0).abs() < 1.0e-12)
-  // within a millionth of a pixel of it over a radius of 200 (more than any the apps have at 4×), and half way to it
-  // (a box with half the room) the same, of the exponent half way
-  for s in [1.0, 0.5] {
+  // within a hundredth of a pixel of it over a radius of 200 (more than any the apps have at 4×: the wholly smooth
+  // corner by its polynomials), and half way to it (a box with half the room, by its powers) within a millionth, of the
+  // exponent half way
+  for s in [(1.0, 0.01), (0.5, 1.0e-6)] {
     for j in 0..=40 {
-      let (x, y, _, _) = on_curve(160.0, s, 1.5707963267948966 * j.to_double() / 40.0)
-      let d = sd_corner(x, y, 300.0, 200.0, 160.0, s)
-      assert_true(d.abs() < 1.0e-6, msg="\{s} at \{j}: \{d} off the curve")
+      let (x, y, _, _) = on_curve(160.0, s.0, 1.5707963267948966 * j.to_double() / 40.0)
+      let d = sd_corner(x, y, 300.0, 200.0, 160.0, s.0)
+      assert_true(d.abs() < s.1, msg="\{s.0} at \{j}: \{d} off the curve")
     }
   }
 }
@@ -56,14 +57,14 @@ test "with no smoothing it is a circle's arc: a round corner's distance, to the 
 }
 
 ///|
-test "off the curve it is the distance along its normal: within a hundredth of a pixel for an edge's cover" {
+test "off the curve it is the distance along its normal: within a hundredth and a half of a pixel for an edge's cover" {
   // a corner of 160 (200 drawn) and one of 12 (15 drawn), a pixel either way of it (the cover is the half pixel)
   for r in [160.0, 12.0] {
     for j in 0..=40 {
       let (x, y, nx, ny) = on_curve(r, 1.0, 1.5707963267948966 * j.to_double() / 40.0)
       for off in [-1.0, -0.5, 0.5, 1.0] {
         let d = sd_corner(x + off * nx, y + off * ny, 300.0, 200.0, r, 1.0)
-        assert_true((d - off).abs() < 0.01, msg="corner \{r} at \{j}, \{off} out: \{d}")
+        assert_true((d - off).abs() < 0.015, msg="corner \{r} at \{j}, \{off} out: \{d}")
       }
     }
   }
@@ -85,7 +86,7 @@ test "it leaves along the edges and only ever turns one way" {
       for k in (j + 1)..=20 {
         let (x0, y0, _, _) = on_curve(20.0, s, 1.5707963267948966 * j.to_double() / 20.0)
         let (x1, y1, _, _) = on_curve(20.0, s, 1.5707963267948966 * k.to_double() / 20.0)
-        assert_true(sd_corner((x0 + x1) / 2.0, (y0 + y1) / 2.0, 300.0, 200.0, 20.0, s) <= 1.0e-9)
+        assert_true(sd_corner((x0 + x1) / 2.0, (y0 + y1) / 2.0, 300.0, 200.0, 20.0, s) <= 1.0e-3)
       }
     }
   }
@@ -118,7 +119,7 @@ test "concentric: a curve moved in is drawn as much smaller, a corner drawn a qu
   assert_eq(concentric(6.0, 10.0), 0.0)
   // the middle of a corner of 20 (wholly smooth): on the curve, as far in from both edges
   let m = smooth_middle(20.0)
-  assert_true(sd_corner(300.0 - m, 200.0 - m, 300.0, 200.0, 20.0, 1.0).abs() < 1.0e-9)
+  assert_true(sd_corner(300.0 - m, 200.0 - m, 300.0, 200.0, 20.0, 1.0).abs() < 1.0e-3)
   // the inner box's corner drawn about the outer's corner's own centre: the same curve, as much smaller as it is in
   assert_eq(10.0 + concentric(26.0, 10.0) * smooth_scale, 26.0 * smooth_scale)
 }
@@ -153,5 +154,19 @@ test "worked out within a band of the curve only: the same there; beyond it, of 
         }
       }
     }
+  }
+}
+
+///|
+test "the wholly smooth corner's polynomials are its factors within 2e-5" {
+  let n = smooth_exponent
+  for i in 0..=1000 {
+    let t = i.to_double() / 1000.0
+    let tn1 = if t == 0.0 { 0.0 } else { @math.pow(t, n - 1.0) }
+    let tn = tn1 * t
+    let u = @math.pow(1.0 + tn, 1.0 / n)
+    let g = (1.0 + tn1 * tn1).sqrt()
+    assert_true((smooth_a(t) - (1.0 + tn) / g).abs() < 2.0e-5, msg="a at \{t}")
+    assert_true((smooth_b(t) - (1.0 + tn) / (u * g)).abs() < 2.0e-5, msg="b at \{t}")
   }
 }

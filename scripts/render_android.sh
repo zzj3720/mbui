@@ -46,6 +46,14 @@ case "${1:-run}" in
       esac
       $ADB exec-out run-as $APP_ID cat files/controls.png > $O/controls-$n.png
     done
+    python3 scripts/bench_cards.py $O/cards.dl
+    for d in controls cards; do
+      $ADB shell am force-stop $APP_ID
+      $ADB exec-in "run-as $APP_ID sh -c 'cat > files/$d.dl'" < $O/$d.dl
+      $ADB logcat -c
+      $ADB shell am start -n $APP_ID/dev.mbui.MainActivity --es env "'MBUI_DL=$F/$d.dl;MBUI_DL_PNG=$F/t.png;MBUI_DL_REPEAT=100'" >/dev/null
+      $ADB logcat -v brief -e 'mbui-render: timed|FATAL EXCEPTION|Fatal signal' -m 1 | grep -v '^-----' | sed "s/^/BENCH $d: /"
+    done
     $ADB shell am force-stop $APP_ID
     md5sum $O/controls-1.png $O/controls-2.png
     if ! cmp -s $O/controls-1.png $O/controls-2.png; then

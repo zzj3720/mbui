@@ -36,7 +36,9 @@ case $H in
   windows) PLATFORM=3 ;;
   web) PLATFORM=4 ;;
   ios) PLATFORM=1
-    export MBUI_IOS_DEVICE=${MBUI_IOS_DEVICE:-ios-mbui-sf} APP=kitdemo ;;
+    export MBUI_IOS_DEVICE=${MBUI_IOS_DEVICE:-ios-mbui-sf} APP=kitdemo
+    # the simulator's lock, shared with still.fail's iOS smoke (its scripts/ios-smoke.sh take_lock)
+    IOS_LOCK=${MBUI_IOS_LOCK:-$HOME/.mbui-ios-sim.lock} ;;
   *) echo "host_contract.sh: no host $H (android, windows, web, mac, ios)" >&2; exit 1 ;;
 esac
 DRIVE=$(base64 < test/host/controls.drive | tr -d '\n\r')
@@ -153,13 +155,30 @@ case $CMD in
       ios) bash scripts/ios.sh build ;;
     esac ;;
   free)
-    # (iOS) the simulator another may use (the iOS host's own runs): booted with an app of its running, it is theirs now
-    # and this fails, waiting on nothing; shut down, these runs boot it (and `done` shuts it again)
-    read -r ID STATE <<< "$(ios_device)"
+    # (iOS) the simulator others use too (still.fail's iOS smoke, mbui-ios.yml; the iOS host's own runs): taken by its
+    # lock, the same as theirs (a directory made at once, `mkdir`: its owner said in it; one an hour old is left over
+    # and taken over). Held by another, this fails, waiting on nothing. Then, booted with an app running that took no
+    # lock (a run by hand), it is that one's and this fails too; shut down, these runs boot it (and `done` shuts it)
+    if ! mkdir "$IOS_LOCK" 2>/dev/null; then
+      if [ -n "$(find "$IOS_LOCK" -maxdepth 0 -mmin +60 2>/dev/null)" ]; then
+        echo "host_contract: taking over a lock left an hour ago: $(cat "$IOS_LOCK/owner" 2>/dev/null)"
+        rm -rf "$IOS_LOCK"
+        mkdir "$IOS_LOCK" 2>/dev/null || { echo "host_contract: another run took the simulator first"; exit 1; }
+      else
+        echo "host_contract: $MBUI_IOS_DEVICE is $(cat "$IOS_LOCK/owner" 2>/dev/null || echo "another run")'s ($IOS_LOCK): not run over it"
+        exit 1
+      fi
+    fi
     rm -f $O/booted-here
+    mkdir -p $O
+    ME="mbui host-ios ${GITHUB_RUN_ID:-by hand $$}"
+    echo "$ME" > "$IOS_LOCK/owner"
+    echo "$ME" > $O/lock-owner
+    read -r ID STATE <<< "$(ios_device)"
     if [ "$STATE" = Booted ]; then
       apps=$(ios_apps "$ID")
       if [ -n "$apps" ]; then
+        rm -rf "$IOS_LOCK" $O/lock-owner
         echo "host_contract: $MBUI_IOS_DEVICE ($ID) is booted with an app running (another's run, scripts/ios.sh): $apps"
         echo "host_contract: not run over it; run this again once it is done (its \`xcrun simctl shutdown $ID\`, or its app ended)"
         exit 1
@@ -175,7 +194,13 @@ case $CMD in
       xcrun simctl shutdown "$ID" 2>/dev/null || true
       echo "$MBUI_IOS_DEVICE ($ID): shut down"
     fi
-    rm -f $O/booted-here ;;
+    rm -f $O/booted-here
+    # the lock let go, if it is still this run's
+    if [ -f $O/lock-owner ] && [ "$(cat "$IOS_LOCK/owner" 2>/dev/null)" = "$(cat $O/lock-owner)" ]; then
+      rm -rf "$IOS_LOCK"
+      echo "$MBUI_IOS_DEVICE: lock let go"
+    fi
+    rm -f $O/lock-owner ;;
   record)
     # a NAME given: a run to commit (listed in textrec_runs.txt); else this run's own ci_HOST, never listed
     KEEP=

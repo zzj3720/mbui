@@ -12,8 +12,9 @@ let view_check_view : Ref[@ui.NativeView?] = Ref(None)
 let view_check_page : Ref[@ui.NativeView?] = Ref(None)
 
 ///|
-/// How long the view is left placed before the run ends: the host's placing done by then (Android's, on its main
-/// thread, comes after the frame that told it).
+/// How long the views are left placed once each the host has is open (ready, or failed: a video with no bytes), before
+/// the run ends: the host's placing done by then (Android's, on its main thread, after the frame that told it; a
+/// page's on Windows, once its WebView2 is made).
 let view_check_ms : Double = 500.0
 
 ///|
@@ -40,7 +41,9 @@ fn view_check_run(c : @ui.Ctx) -> Unit {
     c.native(p, h=Px(200.0), content=Some((12.0, 10.4375, 366.0, 120.25))) |> ignore
   })
   |> ignore
-  if @kit.after(c, "viewcheck", true, view_check_ms) {
+  // (each the host has, open: a view it has not is not here)
+  let open = [v, p].iter().all(fn(x) { !x.here() || x.state() != 0 })
+  if @kit.after(c, "viewcheck", open, view_check_ms) {
     @host.log("VIEWCHECK done")
     @host.exit(0)
   }

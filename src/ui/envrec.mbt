@@ -1,7 +1,8 @@
 // The system's settings the app is drawn by, kept with its frames as its input is (MBUI_DRAW_LOG=1, a Tester's tape):
 // motion reduced, transparency reduced, the system dark, the window's buttons in the app's top row. Read as each frame
 // begins; an ENV line before the first frame's DRAWHASH, and again before the frame where one of them changed. A
-// Tester's `replay_frames` sets them again at their place (its fake host's: Tester::set_reduce_motion,
+// Tester made with the run (Tester::new's `run`) draws its first frame by those it began with; its `replay_frames`
+// sets the later ones again at their place (its fake host's: Tester::set_reduce_motion,
 // set_reduce_transparency, set_dark, set_window_inset), so a run is drawn again by the settings it was drawn by.
 //
 //   ENV {"motion":0|1,"glass":0|1,"dark":0|1,"inset":0|1}    motion reduced, transparency reduced (glass solid), dark,
@@ -31,12 +32,11 @@ fn env_at_frame() -> Unit {
 }
 
 ///|
-/// One ENV line set again on the fake host (Tester::replay_frames): whether it changed any.
-fn replay_env(f : FakeHost, line : String) -> Bool {
-  guard line.find("ENV ") is Some(i) else { return false }
-  let j = @json.parse(line.view(start_offset=i + 4).to_owned()) catch { _ => return false }
-  guard j is Object(m) else { return false }
-  let was = (f.reduce_motion, f.reduce_transparency, f.dark, f.inset)
+/// One ENV line set again on the fake host (Tester::replay_frames).
+fn replay_env(f : FakeHost, line : String) -> Unit {
+  guard line.find("ENV ") is Some(i) else { return }
+  let j = @json.parse(line.view(start_offset=i + 4).to_owned()) catch { _ => return }
+  guard j is Object(m) else { return }
   let on = fn(k : String, was : Bool) -> Bool {
     match m.get(k) {
       Some(Number(d, ..)) => d != 0.0
@@ -48,7 +48,21 @@ fn replay_env(f : FakeHost, line : String) -> Bool {
   f.dark = on("dark", f.dark)
   f.inset = on("inset", f.inset)
   f.wants = true
-  was != (f.reduce_motion, f.reduce_transparency, f.dark, f.inset)
+}
+
+///|
+/// The settings a run began with (its ENV lines before its first DRAWHASH) set on the fake host before a Tester draws
+/// its first frame (Tester::new's `run`), so the frames replayed are the run's, one for one.
+fn env_before_frames(f : FakeHost, run : String) -> Unit {
+  for v in run.split("\n") {
+    let line = v.to_owned()
+    if line.find("DRAWHASH ") is Some(_) {
+      return
+    }
+    if line.find("ENV ") is Some(_) {
+      replay_env(f, line)
+    }
+  }
 }
 
 ///|

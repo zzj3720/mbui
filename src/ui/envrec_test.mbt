@@ -40,7 +40,7 @@ test "the system's settings are kept with the run's frames, and given again as t
 }
 
 ///|
-test "the settings a run began with (an ENV line before its first frame) draw that first frame again, as the run did" {
+test "the settings a run began with (an ENV line before its first frame) draw a Tester's first frame, one frame for each of the run's" {
   let t = @ui.Tester::new(env_view)
   t.set_reduce_motion(true)
   t.set_reduce_transparency(true)
@@ -50,12 +50,20 @@ test "the settings a run began with (an ENV line before its first frame) draw th
   t.start_tape()
   t.frame()
   t.frame()
+  t.set_window_inset(true)
+  t.frame()
   let tape = t.tape()
-  // a Tester made as by default, its first frame at the tape's first: drawn again by the run's settings
-  let u = @ui.Tester::new(env_view, time=begun + 16.0)
+  let kept = tape.split("\n").filter(fn(l) { l.has_prefix("DRAWHASH ") }).count()
+  assert_eq(kept, 3)
+  // made at the run's first frame with the run: that frame drawn by its settings, no frame drawn again
+  let u = @ui.Tester::new(env_view, time=begun, run=tape)
+  assert_true(u.find("still") is Some(_))
+  assert_true(u.find("dark") is Some(_))
   let frames = u.replay_frames(tape)
-  assert_eq(frames.length(), 2)
+  assert_eq(frames.length(), kept)
+  assert_eq(u.frames, kept)
   for f in frames {
     assert_eq(f.1, f.2, msg="frame \{f.0}")
   }
+  assert_true(u.find("inset") is Some(_))
 }

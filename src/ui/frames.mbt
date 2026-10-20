@@ -128,7 +128,7 @@ pub fn Tester::frames(self : Tester, n : Int, ms? : Double = 16.0) -> Array[Int6
 /// A real host's frames as its log said them (MBUI_DRAW_LOG: DRAWHASH lines) drawn again, each at its time, the
 /// window's size, scale and stability (Ctx::stable) as it had them: for each, its number, the host's hash and this
 /// one's (as text). A frame at the time this Tester drew its last is that one (Tester::new at the host's first frame:
-/// `time` 16 ms before it).
+/// `time` 16 ms before it, and `run` this log, so that frame is drawn by the settings the run began with).
 pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String, String)] {
   let out = []
   let num = fn(s : String) -> Double? {
@@ -137,15 +137,11 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
       _ => None
     }
   }
-  // the system's settings set again before the frame a Tester made already (its first): that frame drawn again by them
-  let mut env_changed = false
   for v in log.split("\n") {
     let line = v.to_owned()
     // what the host gave between two frames, handed on at its place (inputrec.mbt)
     if line.find("ENV ") is Some(_) {
-      if replay_env(self.fake, line) {
-        env_changed = true
-      }
+      replay_env(self.fake, line)
       continue
     }
     if line.find("INPUT ") is Some(_) {
@@ -172,10 +168,9 @@ pub fn Tester::replay_frames(self : Tester, log : String) -> Array[(Int, String,
     }
     // (the frame a Tester made at this time already, as it was made: its first, Tester::new's `time`; any later one at
     // the same time is drawn, as a Tester's tape has them: Tester::draw)
-    if t != self.fake.time || out.length() > 0 || env_changed {
+    if t != self.fake.time || out.length() > 0 {
       self.frame(ms=t - self.fake.time)
     }
-    env_changed = false
     out.push((n.to_int(), parts[5], drawn_hash().to_string()))
   }
   out

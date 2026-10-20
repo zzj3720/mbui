@@ -46,7 +46,8 @@ The rules (see RULES below for each one's words):
                    reset_globals, or what on_reset is given) does not put back, nor says `// kept across runs: why`
     build-effect   a view (a function given the Ctx: what a frame's build runs) tells outside of it while it builds: a
                    call to its core ((src.call)(…), what detlint.json's build_effect.fields names), a host's effect
-                   (@host.share, @ui.keep… : build_effect.calls), or a function of the app's that does one, other than
+                   (@host.share, @ui.keep… : build_effect.calls), a native view's own (its reload, set_scale, seek,
+                   close…: build_effect.methods, by name), or a function of the app's that does one, other than
                    in Ctx::after_build, in a callback (fn(…) { … }: an answer, an event's handler) or under an input
                    the frame takes (a click, a tap, a key, a drag let go, a menu's choice: taken by the frame's first
                    build only). A frame is built again while what it read changes, and what a build let go of told
@@ -592,10 +593,15 @@ BUILD_EFFECT_CALLS = ["@host.share", "@host.open_url", "@host.notice_show", "@ho
                       "@host.save_file", "@host.clipboard_set", "@ui.share", "@ui.open_url", "@ui.notice_show",
                       "@ui.notice_ask", "@ui.keep", "@ui.keep_bytes", "@ui.clipboard_set", "@ui.save_file",
                       "@ui.pick", "@ui.set_sideways", "@ui.exit"]
+# a native view's (a page, a site, a video), a PDF's and a keep's own that tell its host (NativeView::reload, …):
+# by their names, whatever they are called on but the Ctx (an app's own of the same name, a player's seek, tells it on)
+BUILD_EFFECT_METHODS = ["go_back", "go_forward", "reload", "load", "set_scale", "close", "play", "pause", "seek",
+                        "rate", "grab_frame"]
 # what a frame takes once, at its first build (frame_body clears them after it): under one of these an effect is the
 # input's
 # a closure given to one of these runs later than the build: a fiber, a timer, a host's answer, a page's leaving
-LATER_CALLS = {"fork", "effect", "spawn", "after", "later", "video", "site", "subscribe", "each_later", "watch"}
+LATER_CALLS = {"fork", "effect", "spawn", "after", "later", "video", "site", "subscribe", "each_later", "watch",
+               "take_back"}
 LATER_LABELS = {"done", "answer", "then", "leave", "serve", "read", "back", "cancel", "fail", "ok"}
 # called with the Ctx in a condition, not a widget's use: a time, a hold, a layout's read
 NOT_INPUT_CALLS = {"after", "held", "within", "mark", "list_info", "rect_of", "words_of", "is_wide", "presence",
@@ -641,6 +647,7 @@ class Config:
         be = d.get("build_effect", {})
         self.effect_fields = set(be.get("fields", ["call", "subscribe"]))
         self.effect_calls = set(be.get("calls", BUILD_EFFECT_CALLS))
+        self.effect_methods = set(be.get("methods", BUILD_EFFECT_METHODS))
 
 
 def lint_mbt(f, cfg, out, returns, readers):
@@ -1079,8 +1086,9 @@ def collect(root, cfg):
 
 def lint_build_effects(files, cfg, out):
     """build-effect: what a view tells outside while it builds (RULES): the effects (a field call (x.call)(…), a
-    package's effect) and the app's functions that do one (found to a fixed point), called in a function given the Ctx,
-    other than in Ctx::after_build, a callback (fn(…) { … }) or under an input the frame takes."""
+    package's effect, a native view's own: its reload, its seek) and the app's functions that do one (found to a fixed
+    point), called in a function given the Ctx, other than in Ctx::after_build, a callback (fn(…) { … }) or under an
+    input the frame takes."""
     app = [f for f in files if not f.test_file and not under(f.rel, cfg.framework)]
 
     def header(f, it):
@@ -1204,6 +1212,9 @@ def lint_build_effects(files, cfg, out):
                 name = f"{c.qual}.{c.name}"
             elif c.kind == "bare" and (os.path.dirname(f.rel), c.name) in helpers:
                 name = c.name
+            elif c.kind == "method" and c.name in cfg.effect_methods and c.at >= 2 and \
+                    not (f.toks[c.at - 2].kind == "ident" and f.toks[c.at - 2].text == "c"):
+                name = "." + c.name
             if name and not exempt(f, c.at):
                 got.append((c.at, name))
         return got

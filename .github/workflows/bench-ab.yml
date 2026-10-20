@@ -1,0 +1,57 @@
+# (bench-corners, not for main) main's renderer and this branch's in the same job, alternately: each draw's time
+name: bench-ab
+on:
+  workflow_dispatch:
+env:
+  MOON_HOME: ${{ github.workspace }}/../.moon
+jobs:
+  windows:
+    strategy: { fail-fast: false, matrix: { run: [a, b] } }
+    runs-on: windows-2025
+    defaults: { run: { shell: bash } }
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with: { path: new }
+      - uses: actions/checkout@v4
+        with: { path: base, ref: bench-corners-base }
+      - uses: ilammy/msvc-dev-cmd@v1
+      - shell: pwsh
+        run: |
+          irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
+          "$env:USERPROFILE\.moon\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - run: |
+          for k in 1 2 3; do
+            for v in base new; do (cd $v && bash scripts/render_windows.sh run 2>&1 | grep -a 'timed' | sed "s/^/AB $v $k: /"); done
+          done
+  android:
+    strategy: { fail-fast: false, matrix: { run: [a, b] } }
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: new }
+      - uses: actions/checkout@v4
+        with: { path: base, ref: bench-corners-base }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | MOON_HOME=$MOON_HOME bash
+          echo "$MOON_HOME/bin" >> $GITHUB_PATH
+      - run: |
+          (cd base && scripts/render_android.sh build)
+          (cd new && scripts/render_android.sh build)
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          emulator-build: 16428233
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: for k in 1 2 3; do for v in base new; do (cd $v && bash scripts/render_android.sh run 2>&1 | grep -a 'timed' | sed "s/^/AB $v $k: /"); done; done

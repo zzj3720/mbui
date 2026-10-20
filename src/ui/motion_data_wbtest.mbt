@@ -86,12 +86,14 @@ test "every from when its count started: the next period's frame where the count
   assert_eq(shown.val, 0)
   // its frame is asked for at 1600 ms after, then 2600: where what it shows changes
   assert_eq(g().wake_at, s0 + 1000.0)
-  t.run_for(999.0)
+  // a millisecond short of its first second, then that second
+  let short = second - 1.0
+  t.run_for(short)
   assert_eq(shown.val, 0)
-  t.run_for(1.0)
+  t.run_for(second - short)
   assert_eq(shown.val, 1)
   assert_eq(g().wake_at, s0 + 2000.0)
-  t.run_for(1000.0)
+  t.run_for(second)
   assert_eq(shown.val, 2)
   assert_eq(g().wake_at, s0 + 3000.0)
   t.assert_idle()

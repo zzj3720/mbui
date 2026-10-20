@@ -796,6 +796,9 @@ def split_stable(prelude, decls, decl_kinds, externs, data, data_names, funcs, i
     for it in ditems:
         if it[3]:
             pp_uses |= it[2]
+    # and what the prelude's own macros name of moonc's (MSVC's Moonbit_v128_*: functions moonc declares, a unit
+    # calling them through the macro alone; MSVC takes a call to one undeclared for an int's)
+    pp_uses |= prelude_ids & set(by_name)
 
     def closure(used):
         want_d, want_e = set(), set()

@@ -40,6 +40,11 @@ def web(text, lines):
 
 def main():
     lines = SRC.read_text().rstrip("\n").split("\n")
+    # (web/host.js holds it in a template literal: no backquote, no ${)
+    bad = [i + 1 for i, l in enumerate(lines) if "`" in l or "${" in l]
+    if bad:
+        print(f"src/host/corner.sl: a backquote or ${{ on line {bad[0]}, which would end web/host.js's shader")
+        sys.exit(1)
     want_h = header(lines)
     js = WEB.read_text()
     want_js = web(js, lines)

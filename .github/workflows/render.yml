@@ -1,6 +1,7 @@
 # The renderer's pixels (docs/determinism.md, "Pixel references belong to one kind of machine"): a Tester's draw list
-# drawn offscreen on GitHub's macOS runner, twice, in two jobs: the two pictures the same to the byte, and the
-# runner's image said (its version is what the references are made on).
+# drawn offscreen on GitHub's macOS runner, against its reference (goldens/render/macos15-*.png) to the byte, on the
+# runner image the references were made on (goldens/render/macos15.txt). The pictures drawn are the artifact: what a
+# PR that changes them commits, saying which and why.
 name: render
 on:
   pull_request:
@@ -9,8 +10,19 @@ on:
       - "src/host/apple_text.m"
       - "src/render/**"
       - "src/ui/drawlist.mbt"
+      - "src/ui/scene.mbt"
+      - "goldens/render/**"
       - "scripts/render_offscreen.sh"
       - ".github/workflows/render.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/host/apple_render.m"
+      - "src/host/apple_text.m"
+      - "src/render/**"
+      - "src/ui/drawlist.mbt"
+      - "src/ui/scene.mbt"
+      - "goldens/render/**"
   workflow_dispatch:
 
 env:
@@ -18,9 +30,6 @@ env:
 
 jobs:
   offscreen:
-    strategy:
-      matrix:
-        run: [1, 2]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -31,21 +40,23 @@ jobs:
       - name: A Tester's draw list drawn offscreen (scripts/render_offscreen.sh)
         run: scripts/render_offscreen.sh
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: render-${{ matrix.run }}
+          name: render
           path: out/render/
-
-  same:
-    needs: offscreen
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@v4
-      - name: The two jobs' pictures the same to the byte
+      - name: The runner's image the references were made on
         run: |
-          cat render-1/machine.txt render-2/machine.txt
-          cmp render-1/controls.dl render-2/controls.dl
-          if cmp -s render-1/controls.png render-2/controls.png; then
-            echo "the same to the byte: $(md5sum < render-1/controls.png)"
+          want=$(sed -n 's/^image //p' goldens/render/macos15.txt)
+          have="$ImageOS $ImageVersion"
+          if [ "$want" != "$have" ]; then
+            echo "the runner's image is $have, the references were made on $want: make them all again in one PR (this run's artifact), saying so"
+            exit 1
+          fi
+      - name: Against the references, to the byte
+        run: |
+          if cmp -s out/render/controls.png goldens/render/macos15-controls.png; then
+            echo "the same to the byte"
           else
-            echo "the two pictures differ"; exit 1
+            echo "goldens/render/macos15-controls.png: not what this runner draws now (this run's artifact has it)"
+            exit 1
           fi

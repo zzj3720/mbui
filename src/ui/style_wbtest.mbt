@@ -427,6 +427,6 @@ test "style: radius=Inner leaves out an edge it reaches past (cut there, in a ro
   })
   t.draw()
   let c = g()
-  assert_eq(c.nodes[c.count - 1].radius, 16.0)
+  assert_eq(c.nodes[c.count - 1].radius, concentric(24.0, 8.0))
   assert_eq(t.corner_faults(), [])
 }

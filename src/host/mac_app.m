@@ -65,6 +65,7 @@ static char unrest_what[2048];     // else what kept it from it, as its last fra
 static mb_outside_fn outside_cb;   // who is told as that is done (host_native.mbt's set_outside)
 static void pump_soon(void);
 static void script_next(void);
+static int settled_run(void);
 
 double mb_now_ms(void) { return CACurrentMediaTime() * 1000.0; }
 
@@ -753,7 +754,7 @@ void mb_host_run(moonbit_string_t title, mb_frame_fn frame, mb_pointer_fn pointe
   mb_cb = (mb_callbacks){frame, pointer, wheel, key, text};
   shot_path = getenv("MBUI_SHOT_DIR");
   script = getenv("MBUI_SCRIPT");
-  settle = script && !getenv("MBUI_RECORD") && getenv("MBUI_BENCH") && atoi(getenv("MBUI_BENCH")) < 0;
+  settle = settled_run();
   record_dir = getenv("MBUI_RECORD");
   if (getenv("MBUI_RECORD_FROM")) record_from = atoi(getenv("MBUI_RECORD_FROM"));
   if (getenv("MBUI_RECORD_FRAMES")) record_frames = atoi(getenv("MBUI_RECORD_FRAMES"));
@@ -913,8 +914,14 @@ int32_t mb_host_open_url(moonbit_string_t s) {
   return [NSWorkspace.sharedWorkspace openURL:url] ? 1 : 0;
 }
 
-// Whether the run is on its own clock (host_native.mbt's own_clock): a settled run's.
-int32_t mb_host_own_clock(void) { return settle ? 1 : 0; }
+// Whether the run is settled (above): a script's, in stable mode, not a recording's. From the environment, as it is
+// the same before the window runs (what the app starts before @ui.run asks it: own_clock) and after.
+static int settled_run(void) {
+  return getenv("MBUI_SCRIPT") && !getenv("MBUI_RECORD") && getenv("MBUI_BENCH") && atoi(getenv("MBUI_BENCH")) < 0;
+}
+
+// Whether the run is on its own clock (host_native.mbt's own_clock): a settled run's, asked before the window runs too.
+int32_t mb_host_own_clock(void) { return settled_run(); }
 
 int32_t mb_host_reduce_motion(void) {
   return NSWorkspace.sharedWorkspace.accessibilityDisplayShouldReduceMotion ? 1 : 0;

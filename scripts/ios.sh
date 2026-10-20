@@ -9,8 +9,8 @@
 # An app of a module outside this repository (one whose moon.work names mbui as a member, as scripts/android.sh says):
 #   MBUI_APP_MOD     that module's directory (APP is its src/<APP>; out/ and _build/ are its own); default this repo
 #   MBUI_IOS_ID      the app's bundle id (default dev.mbui.demo); MBUI_IOS_PLIST its Info.plist (default ios/Info.plist)
-#   MBUI_IOS_DEVICE  the simulator's name (default mbui-iphone): one of our own, made when missing (the newest iOS
-#     runtime, an iPhone Pro); never another's
+#   MBUI_IOS_DEVICE  the simulator's name (default ios-mbui-sf, Mini1's: Studio's simulators open no app): one of our
+#     own, made when missing (the newest iOS runtime, an iPhone Pro); never another's
 #   MBUI_IOS_HOOK    a script sourced here that adds to the build (still.fail's core: its apps/mbui/scripts/ios-core.sh):
 #     APP_EXTRA (more C or Objective-C for the app: --extra=FILE ...), APP_LINK (its link flags), APP_ENTITLEMENTS (a
 #     plist the app is signed with), and the functions app_libs (before the link: what APP_LINK names made),
@@ -25,7 +25,7 @@ cd "$MOD"
 OUT=out/ios
 APPDIR=$OUT/MBUI.app
 BID=${MBUI_IOS_ID:-dev.mbui.demo}
-DEV_NAME=${MBUI_IOS_DEVICE:-mbui-iphone}
+DEV_NAME=${MBUI_IOS_DEVICE:-ios-mbui-sf}
 PKG=${APP:-demo}
 LOG=${MBUI_IOS_LOG:-$PWD/$OUT/app.log}
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
@@ -56,15 +56,13 @@ for rt,ds in d.items():
   local st=$(mktemp -t mbui-bootstatus)
   xcrun simctl bootstatus "$id" >"$st" 2>&1 &
   local pid=$! t0=$(date +%s)
-  while kill -0 $pid 2>/dev/null; do
-    if [ $(($(date +%s) - t0)) -gt ${MBUI_IOS_BOOT_WAIT:-2400} ]; then
-      kill $pid 2>/dev/null
-      echo "ios.sh: $DEV_NAME did not boot: $(tail -2 "$st")" >&2
-      rm -f "$st"
-      return 1
-    fi
-    sleep 5
-  done
+  # (bootstatus' own end: scripts/logwait.py, kqueue's)
+  if ! python3 "$D/logwait.py" --pid $pid --deadline ${MBUI_IOS_BOOT_WAIT:-2400}; then
+    kill $pid 2>/dev/null
+    echo "ios.sh: $DEV_NAME did not boot: $(tail -2 "$st")" >&2
+    rm -f "$st"
+    return 1
+  fi
   wait $pid 2>/dev/null || true
   echo "ios.sh: $DEV_NAME booted in $(($(date +%s) - t0)) s" >&2
   rm -f "$st"
@@ -139,13 +137,11 @@ case "${1:-build}" in
       SIMCTL_CHILD_MBUI_SHOT_DIR=${SIMCTL_CHILD_MBUI_SHOT_DIR:-$PWD/$OUT/shots} \
       xcrun simctl launch --terminate-running-process --stdout="$LOG.stdout" --stderr="$LOG" "$ID" $BID \
       >"$LOG.launch" 2>&1 &
-    # the app's process as the simulator's launchd has it: `simctl launch` can sit on for minutes after the app is up
-    # (seen on a loaded Mac), so it is not waited for
-    for _ in $(seq 1 120); do
-      pid=$(app_pid "$ID")
-      [ -n "$pid" ] && break
-      sleep 1
-    done
+    # the app up as it says on its log (ios_app.m's "ios: launched", scripts/logwait.py), then its process as the
+    # simulator's launchd has it: `simctl launch` can sit on for minutes after the app is up (seen on a loaded Mac), so
+    # it is not waited for
+    pid=
+    python3 "$D/logwait.py" --log "$LOG" --line '^ios: launched' --deadline 120 >/dev/null && pid=$(app_pid "$ID")
     [ -n "$pid" ] || { cat "$LOG.launch" >&2; echo "ios.sh: $BID did not start" >&2; exit 1; }
     echo "$BID: $pid"
     ;;

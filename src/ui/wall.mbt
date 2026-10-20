@@ -9,7 +9,10 @@ pub let tester_wall : Double = 1790000000000.0
 
 ///|
 /// The time of day now, in ms since 1970 (UTC): to show how long ago something was, or its date. A Tester's is what
-/// its test set (Tester::set_wall, by default tester_wall at its start), on as its frames' clock goes.
+/// its test set (Tester::set_wall, by default tester_wall at its start), on as its frames' clock goes. What shows the
+/// time since `t` changes as its unit comes, counted from `t`, not from the frames' clock's 0:
+///
+///   c.every(60000.0, elapsed=@ui.wall_ms() - t)   // its minutes' words change at each minute since t
 pub fn wall_ms() -> Double {
   h_wall_ms()
 }

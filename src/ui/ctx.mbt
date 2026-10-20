@@ -208,9 +208,14 @@ pub struct Ctx {
   /// focus given, a list scrolled): built again in this frame (frame_body); the last that changed (what it is)
   mut read_back_moved : Bool
   mut read_back_key : String
-  /// what the view read of the layout as it built (readback.mbt): what it is, as read, and how to read it again; the
-  /// boxes' rects as last laid out
-  layout_reads : Map[String, (String, () -> String)]
+  /// what the view read of the layout as it built (readback.mbt), as read (and where, a laid rect): boxes' laid rects,
+  /// lists' places, rows' heights, whether words are laid out; the boxes whose laid rect is read, and when last, with
+  /// their rects as last laid out
+  laid_reads : Map[Int, ((Double, Double, Double, Double)?, SourceLoc)]
+  place_reads : Map[String, (Int, Double, Double)?]
+  row_reads : Map[(String, Int), Double?]
+  words_reads : Map[String, Bool]
+  laid_watch : Map[Int, Int]
   laid_rects : Map[Int, (Double, Double, Double, Double)]
   mut nav_rest : Double
   /// what is under everything the frame draws (0-1: what the host clears to as it presents it)
@@ -358,7 +363,11 @@ fn Ctx::new() -> Ctx {
     took_input: false,
     read_back_moved: false,
     read_back_key: "",
-    layout_reads: Map::new(),
+    laid_reads: Map::new(),
+    place_reads: Map::new(),
+    row_reads: Map::new(),
+    words_reads: Map::new(),
+    laid_watch: Map::new(),
     laid_rects: Map::new(),
     nav_rest: -1.0,
     clear: (0.961, 0.961, 0.969),

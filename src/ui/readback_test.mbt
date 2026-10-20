@@ -14,41 +14,47 @@ test "a box sized by another's laid height follows it in the frame it changes, n
       c.column(fn() {
         c.box(w=Px(50.0), h=Px(tall.val), id=a, fn() {  }) |> ignore
         c.box(w=Px(50.0), h=Px(h), fn() {  }) |> ignore
+        c.text("below", wrap=false) |> ignore
       })
       |> ignore
       seen.push((tall.val, h))
     },
     w=200.0,
-    h=200.0,
+    h=300.0,
   )
-  // laid out once: the second box as tall as the first, in the first frame
   assert_eq(seen[seen.length() - 1], (40.0, 40.0))
   tall.val = 70.0
-  t.draw()
-  // grown: the frame that draws it built again from where it is laid out now
+  // one frame, the one that takes the change: built again in it from the box as laid out now
+  t.frame()
   assert_eq(seen[seen.length() - 1], (70.0, 70.0))
+  // and drawn so: what is under the second box is under 70 + 70
+  let (_, y, _, _) = t.rect_of("below").unwrap()
+  assert_eq(y, 140.0)
   t.assert_idle()
 }
 
 ///|
-test "a row's height read as the view builds is this frame's" {
+test "a row's height read as the view builds is this frame's, in the frame it changes" {
   let tall = Ref::new(40.0)
-  let read : Array[Double?] = []
   let t = @ui.Tester::new(
     fn(c) {
-      read.push(c.list_row_height("rows", 0))
-      c.list("rows", 3, 40.0, fn(i) {
-        c.box(w=Fill(1.0), h=Px(if i == 0 { tall.val } else { 40.0 }), fn() {  }) |> ignore
+      let h = c.list_row_height("rows", 0)
+      c.column(fn() {
+        c.text("row 0: \{h}", wrap=false) |> ignore
+        c.list("rows", 3, 40.0, fn(i) {
+          c.box(w=Fill(1.0), h=Px(if i == 0 { tall.val } else { 40.0 }), fn() {  }) |> ignore
+        })
+        |> ignore
       })
       |> ignore
     },
     w=200.0,
     h=300.0,
   )
-  assert_eq(read[read.length() - 1], Some(40.0))
+  assert_true(t.rect_of("row 0: Some(40)") is Some(_))
   tall.val = 90.0
-  t.draw()
-  assert_eq(read[read.length() - 1], Some(90.0))
+  t.frame()
+  assert_true(t.rect_of("row 0: Some(90)") is Some(_))
   t.assert_idle()
 }
 

@@ -801,7 +801,9 @@ pub fn Ctx::list_info(self : Ctx, key : String) -> ListInfo? {
 /// view builds, it is read back (readback.mbt): laid out otherwise this frame, the frame is built again from it.
 pub fn Ctx::list_place(self : Ctx, key : String) -> (Int, Double, Double)? {
   let v = self.list_place_now(key)
-  self.read_layout("list_place \"\{key}\"", v.to_string(), fn() { self.list_place_now(key).to_string() })
+  if building.val && !self.place_reads.contains(key) {
+    self.place_reads[key] = v
+  }
   v
 }
 
@@ -819,9 +821,9 @@ fn Ctx::list_place_now(self : Ctx, key : String) -> (Int, Double, Double)? {
 /// read back (readback.mbt), as list_place is.
 pub fn Ctx::list_row_height(self : Ctx, key : String, item : Int) -> Double? {
   let v = self.list_row_height_now(key, item)
-  self.read_layout("list_row_height \"\{key}\" \{item}", v.to_string(), fn() {
-    self.list_row_height_now(key, item).to_string()
-  })
+  if building.val && !self.row_reads.contains((key, item)) {
+    self.row_reads[(key, item)] = v
+  }
   v
 }
 

@@ -7,44 +7,65 @@
 
 ///|
 /// Where box `id` is as this frame lays it out (x, y, w, h: its whole box, not cut to what clips it); None before it is
-/// first laid out. For sizing what is built from it (room left by a box, a stage's size); read back: laid out
-/// otherwise this frame, the frame is built again. Following a finger and hitting are Ctx::rect_of's (the hit area the
-/// last frame drew, cut to its clips).
+/// first laid out (the first frame it is read in: then built again once it is). For sizing what is built from it (room
+/// left by a box, a stage's size); read back: laid out otherwise this frame, the frame is built again. Following a
+/// finger and hitting are Ctx::rect_of's (the hit area the last frame drew, cut to its clips). Only the boxes read are
+/// kept, until a frame does not read them.
 #callsite(autofill(loc))
 pub fn Ctx::laid_rect(self : Ctx, id : Int, loc~ : SourceLoc) -> (Double, Double, Double, Double)? {
   let v = self.laid_rects.get(id)
-  self.read_layout("laid_rect of box \{id}, read at \{loc}", v.to_string(), fn() {
-    self.laid_rects.get(id).to_string()
-  })
+  if building.val {
+    self.laid_watch[id] = self.frame_no
+    if !self.laid_reads.contains(id) {
+      self.laid_reads[id] = (v, loc)
+    }
+  }
   v
 }
 
 ///|
-/// What of the layout the view read as it builds (`what` it is, `v` as read, `now` it read again): the first read of a
-/// pass kept, looked at again once the pass is laid out (reads_after_layout).
-fn Ctx::read_layout(self : Ctx, what : String, v : String, now : () -> String) -> Unit {
-  if building.val && !self.layout_reads.contains(what) {
-    self.layout_reads[what] = (v, now)
-  }
-}
-
-///|
-/// Once laid out: the boxes' rects kept (those with an id), and what was read looked at again; what moved is read back.
+/// Once laid out: the rects of the boxes read kept (those a frame before this did not read, let go), and what was read
+/// looked at again; what is not as it was read is a layout read back that moved, said as what it is.
 fn Ctx::reads_after_layout(self : Ctx) -> Unit {
-  self.laid_rects.clear()
-  for i in 0..<self.count {
-    let n = self.nodes[i]
-    if n.id != 0 {
-      self.laid_rects[n.id] = (n.x, n.y, n.fw, n.fh)
+  if !self.laid_watch.is_empty() {
+    let gone = []
+    self.laid_watch.each(fn(id, at) { if at < self.frame_no { gone.push(id) } })
+    for id in gone {
+      self.laid_watch.remove(id)
+      self.laid_rects.remove(id)
+    }
+    for i in 0..<self.count {
+      let n = self.nodes[i]
+      if n.id != 0 && self.laid_watch.contains(n.id) {
+        self.laid_rects[n.id] = (n.x, n.y, n.fw, n.fh)
+      }
     }
   }
-  let moved = []
-  self.layout_reads.each(fn(what, r) {
-    if (r.1)() != r.0 {
-      moved.push(what)
+  let moved : Array[String] = []
+  self.laid_reads.each(fn(id, r) {
+    if self.laid_rects.get(id) != r.0 {
+      moved.push("laid_rect of box \{id}, read at \{r.1}")
     }
   })
-  self.layout_reads.clear()
+  self.place_reads.each(fn(key, was) {
+    if self.list_place_now(key) != was {
+      moved.push("list_place \"\{key}\"")
+    }
+  })
+  self.row_reads.each(fn(k, was) {
+    if self.list_row_height_now(k.0, k.1) != was {
+      moved.push("list_row_height \"\{k.0}\" \{k.1}")
+    }
+  })
+  self.words_reads.each(fn(key, was) {
+    if words_kept.contains(key) != was {
+      moved.push("words_of \"\{key}\" (laid out or gone)")
+    }
+  })
+  self.laid_reads.clear()
+  self.place_reads.clear()
+  self.row_reads.clear()
+  self.words_reads.clear()
   for m in moved {
     self.read_changed(m)
   }

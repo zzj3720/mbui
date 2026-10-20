@@ -66,9 +66,9 @@ pub fn Ctx::words(
 /// gone), the frame is built again; where they lie, read back as they move (words_after_layout).
 pub fn Ctx::words_of(self : Ctx, key : String) -> Words? {
   let v = words_kept.get(key)
-  self.read_layout("words_of \"\{key}\" laid out", (v is Some(_)).to_string(), fn() {
-    (words_kept.get(key) is Some(_)).to_string()
-  })
+  if building.val && !self.words_reads.contains(key) {
+    self.words_reads[key] = v is Some(_)
+  }
   v
 }
 

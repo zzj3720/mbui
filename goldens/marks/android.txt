@@ -6,5 +6,5 @@ png a8eb09a2a99db13853a60184e4b873df
 system google/sdk_gphone64_x86_64/emu64xa:14/UE1A.230829.050/12077443:userdebug/dev-keys
 fonts d250c9f9ce15fa5bc8c331415e8e1fb7
 emulator 37.2.12
-simd 
+simd sse4_2 avx
 cpu AMD EPYC 7763 64-Core Processor

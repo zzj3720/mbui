@@ -721,6 +721,14 @@ pub fn Ctx::frame_number(self : Ctx) -> Int {
 }
 
 ///|
+/// Whether a frame is being made now (its build, its layout): a motion told in it starts at its time; told between
+/// frames (a host's callback), at the next.
+pub fn Ctx::in_frame(self : Ctx) -> Bool {
+  ignore(self)
+  in_frame.val
+}
+
+///|
 /// Where node `i` is laid out (x, y, w, h).
 pub fn Ctx::node_rect(self : Ctx, i : Int) -> (Double, Double, Double, Double) {
   let n = self.nodes[i]

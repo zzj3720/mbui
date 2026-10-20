@@ -110,6 +110,8 @@ let driver : Ref[Driver?] = { val: None }
 ///|
 /// Reads the script from the environment, once, as the window opens.
 fn drive_init() -> Unit {
+  let _bump = 1
+  ignore(_bump)
   let script = @host.env_text("MBUI_DRIVE")
   if script != "" {
     let dir = @host.env("MBUI_SHOT_DIR")

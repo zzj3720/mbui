@@ -35,10 +35,12 @@ case "${1:-run}" in
       echo "system $(pwq '[Environment]::OSVersion.VersionString')"
       echo "warp $(pwq '(Get-Item C:\Windows\System32\d3d10warp.dll).VersionInfo.FileVersion')"
       echo "dwrite $(pwq '(Get-Item C:\Windows\System32\DWrite.dll).VersionInfo.FileVersion')"
+      # the fonts the text comes from (Segoe UI, its fallbacks for Han: win_text.cpp)
+      echo "fonts $(cat /c/Windows/Fonts/segoeui*.ttf /c/Windows/Fonts/msyh*.ttc /c/Windows/Fonts/simsun.ttc 2>/dev/null | md5sum | cut -c1-32)"
       echo "cpu $(pwq '(Get-CimInstance Win32_Processor).Name')"
     } | tee $O/machine.txt
     ;;
   against)
-    render_against windows "image"
+    render_against windows "system warp dwrite fonts"
     ;;
 esac

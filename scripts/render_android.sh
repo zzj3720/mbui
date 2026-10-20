@@ -66,6 +66,6 @@ case "${1:-run}" in
     } | tee $O/machine.txt
     ;;
   against)
-    render_against android "image emulator system"
+    render_against android "emulator system build"
     ;;
 esac

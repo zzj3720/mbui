@@ -11,7 +11,8 @@ render_dl() {
 }
 
 # The picture against its reference, on the machine the references were made on: goldens/render/$1.txt's lines
-# whose key is one of $2 (space separated: image, emulator…) the same in out/render/machine.txt, and
+# whose key is one of $2 (space separated: what draws the picture there, emulator, browser, fonts…) the same in
+# out/render/machine.txt, and
 # out/render/controls.png the same as goldens/render/$1-controls.png to the byte. Either not: a failure saying what
 # to do (a new machine: every reference of the host made again in one PR, from the workflow's artifact).
 render_against() {

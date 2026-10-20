@@ -39,11 +39,13 @@ case "${1:-run}" in
       echo "picture $(md5sum < $O/controls.png | cut -c1-32)"
       echo "image ${ImageOS:-} ${ImageVersion:-}"
       sed -n 's/^browser /browser /p; s/^gl /gl /p' $O/run-1.txt
+      # the fonts the page's text can come from (the system's, by fontconfig): their files' bytes
+      echo "fonts $(fc-list --format '%{file}\n' | sort -u | xargs md5sum | md5sum | cut -c1-32)"
       echo "system $(. /etc/os-release && echo "$PRETTY_NAME") $(uname -r)"
       echo "cpu $(sed -n 's/^model name\t: //p' /proc/cpuinfo | head -1)"
     } | tee $O/machine.txt
     ;;
   against)
-    render_against web "image browser"
+    render_against web "browser fonts"
     ;;
 esac

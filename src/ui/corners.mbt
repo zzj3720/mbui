@@ -1,6 +1,7 @@
 // still.fail's corner rule, measured (its docs/ui-panels.md, "所有带圆角的东西"): what has a ground of its own (a
 // button, a row, a field, a block) and lies in the corner of a rounded container stands as far from the two edges of
-// that corner, and its corner is the container's less that distance (concentric). A test asks the frame it drew
+// that corner, and its corner is the container's less that distance (concentric); a circle or a capsule there only
+// as far from both. A test asks the frame it drew
 // (Tester::corner_faults); the gallery's components keep to it.
 
 ///|
@@ -57,7 +58,10 @@ pub fn Tester::corner_faults(self : Tester) -> Array[String] {
       // (flush in the corner of what cuts it is still a fault: a cut is a rectangle, the container's corner does not
       // round what lies in it; it is let be once the cut follows the corner, mbui#42)
       let even = (dx - dy).abs() <= 0.5
-      let concentric = (rb - (ra - dmax(dx, dy))).abs() <= 0.5
+      // a whole circle or a capsule (its corner half its shorter side: an avatar, a switch's knob, a dot) is round by
+      // what it is, not cut to the container's corner: only as far from both edges
+      let round = rb >= dmin(b.fw, b.fh) / 2.0 - 0.5
+      let concentric = round || (rb - (ra - dmax(dx, dy))).abs() <= 0.5
       if !(even && concentric) {
         let corner = ["top left", "top right", "bottom left", "bottom right"][k]
         out.push(

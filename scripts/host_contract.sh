@@ -18,7 +18,7 @@
 #   scripts/host_contract.sh HOST views         a native view placed between pixels (kitdemo's MBUI_VIEWCHECK,
 #        src/kitdemo/viewcheck.mbt): where the host put it (its VIEWAT line, device pixels) is where the app told it
 #        to (VIEWTOLD), on whole device pixels, or it fails
-#   scripts/host_contract.sh HOST rest          (android, mac) kitdemo's kit page pictured at its rest (a run
+#   scripts/host_contract.sh HOST rest          (android, mac) kitdemo's foundation page pictured at its rest (a run
 #        on its own clock: Android's shot_at=rest, mac's MBUI_SHOT_MS=rest; @ui's Ctx::at_rest) and at a declared
 #        moment (1000 ms on that clock): both taken ("SHOT n t"), and the same to the byte (out/host/HOST/rest-*.png),
 #        or it fails: the moment the app's rest is found at is not too early
@@ -388,10 +388,11 @@ open(sys.argv[2],'wb').write(base64.b64decode(''.join(parts)))
     fi ;;
   rest)
     case $H in mac|android) ;; *) echo "rest contract: not on $H yet (android, mac)"; exit 1 ;; esac
-    # (the moment a picture at a declared time is taken at: past what the page sets moving as it opens; the kit page,
-    # where nothing turns: the controls page's progress bar that runs on is at its clock's turn, other at each moment)
+    # (the moment a picture at a declared time is taken at: past what the page sets moving as it opens; the foundation
+    # page, where nothing turns: the controls page's progress bar that runs on is at its clock's turn, other at each
+    # moment)
     at_ms=1000
-    REST_PAGE=kit
+    REST_PAGE=foundation
     rm -f $O/rest-*.png $O/rest-*.log
     for m in $at_ms rest; do
       case $H in

@@ -7,6 +7,7 @@ import android.text.InputType;
 import android.view.Choreographer;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ViewTreeObserver;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -99,8 +100,25 @@ public class MBView extends GLSurfaceView implements GLSurfaceView.Renderer {
             // said once it is on the screen: swapped as this returns, taken by the compositor at the next vsync,
             // shown by the one after
             final String said = "SHOT " + shotFrames + " " + t;
-            Host.main.post(() -> Choreographer.getInstance().postFrameCallback(a ->
-                    Choreographer.getInstance().postFrameCallback(b -> Host.log(said))));
+            // (and not before the window is the one shown: the system's starting window, its splash, is over the
+            // app's until the app's has drawn and taken the focus, a picture as early as the first frame would be of
+            // the splash)
+            Runnable say = () -> Choreographer.getInstance().postFrameCallback(a ->
+                    Choreographer.getInstance().postFrameCallback(b -> Host.log(said)));
+            Host.main.post(() -> {
+                if (hasWindowFocus()) {
+                    say.run();
+                    return;
+                }
+                getViewTreeObserver().addOnWindowFocusChangeListener(new ViewTreeObserver.OnWindowFocusChangeListener() {
+                    @Override
+                    public void onWindowFocusChanged(boolean focused) {
+                        if (!focused) return;
+                        getViewTreeObserver().removeOnWindowFocusChangeListener(this);
+                        say.run();
+                    }
+                });
+            });
             return;
         }
         shotClock = shotFrames * (1000.0 / 60.0);

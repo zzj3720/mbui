@@ -3,8 +3,6 @@ name: bench-ab
 on:
   push:
     branches: [bench-corners-poly]
-env:
-  MOON_HOME: ${{ github.workspace }}/../.moon
 jobs:
   windows:
     strategy: { fail-fast: false, matrix: { run: [a, b] } }
@@ -28,8 +26,11 @@ jobs:
             for v in base lay new; do (cd $v && bash scripts/render_windows.sh run > ../$v-$k.log 2>&1 || tail -30 ../$v-$k.log; grep -a 'timed' ../$v-$k.log | sed "s/^/AB $v $k: /"); done
           done
   android:
+    if: false
     strategy: { fail-fast: false, matrix: { run: [a, b] } }
     runs-on: ubuntu-24.04
+    env:
+      MOON_HOME: ${{ github.workspace }}/../.moon
     steps:
       - uses: actions/checkout@v4
         with: { path: new }

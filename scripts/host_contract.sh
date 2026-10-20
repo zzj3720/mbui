@@ -6,7 +6,7 @@
 #        taps (MBUI_DRIVE) and its tape on the log (MBUI_DRAW_LOG=1 MBUI_TEXT_RECORD=1): out/host/HOST/run.log; made a
 #        Tester's test (scripts/textrec_test.py, as ci_HOST) and run there: every frame the same, or it fails.
 #        NAME=HOST_controls keeps the tape as the one committed (src/kitdemo/textrec_HOST_controls*.mbt)
-#   scripts/host_contract.sh HOST text [NAME]   the kept run NAME's text (HOST_controls by default) asked of the host's
+#   scripts/host_contract.sh HOST text [NAME]   the kept run NAME's text (HOST_controls by default; mac: mini1_controls) asked of the host's
 #        text system again (MBUI_TEXTCHECK, src/kitdemo/textcheck.mbt): each answer the same, or it fails
 #
 # HOST: android (an emulator booted already, SERIAL: emulator-5554 by default; ABI=x86_64 for an x86_64 one), windows
@@ -89,7 +89,9 @@ case $CMD in
     fi
     echo "host contract ($H): the Tester drew every frame the host drew" ;;
   text)
-    NAME=${3:-${H}_controls}
+    # (macOS: the run Mini1 kept, src/kitdemo/textrec_mini1_controls.mbt; the other hosts' are their CI's)
+    DEF=${H}_controls; [ $H = mac ] && DEF=mini1_controls
+    NAME=${3:-$DEF}
     code=0
     run "MBUI_TEXTCHECK=$NAME" $O/text.log || code=$?
     tr -d '\r' < $O/text.log | grep -a "TEXTCHECK" | head -40

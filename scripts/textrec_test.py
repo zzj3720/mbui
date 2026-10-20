@@ -63,7 +63,7 @@ def main():
     test = [f"// A Tester over {name}'s kept text and frames (textrec_{name}.mbt), made by scripts/textrec_test.py.", "",
             "///|",
             f'test "the {page} page under a Tester over {name}\'s kept text draws, frame for frame, what it drew" {{',
-            "  kit_reset()",
+            "  reset()",
             f'  let t = @ui.Tester::new(fn(c) {{ gallery(c, "{page}") }}, w={w}, h={h}, text=run_{name}, scale={scale}, time={t0} - 16.0, stable={stable}{plat})',
             f"  let frames = t.replay_frames(run_{name})",
             "  let apart = frames.filter(fn(f) { f.1 != f.2 })",

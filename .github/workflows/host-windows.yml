@@ -57,6 +57,8 @@ jobs:
         run: scripts/host_contract.sh windows build
       # The runner's Windows has "Show animations in Windows" off (motion reduced: mb_host_reduce_motion), which the tape
       # does not keep (a Tester plays motion as not reduced): turned on, as a desktop has it.
+      # 待根治：减弱动效、减弱透明、系统深色、窗口 inset 都还没进带子；确定性负责人正在让宿主把它们记进带子、由
+      # replay_frames 交还给 Tester。交还之后删掉这一步（那时带子自己记着宿主是否减弱动效）。
       - name: The system's animations on
         shell: pwsh
         run: |

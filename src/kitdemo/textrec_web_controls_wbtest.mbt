@@ -2,7 +2,7 @@
 
 ///|
 test "the controls page under a Tester over web_controls's kept text draws, frame for frame, what it drew" {
-  kit_reset()
+  reset()
   let t = @ui.Tester::new(fn(c) { gallery(c, "controls") }, w=960.0, h=720.0, text=run_web_controls, scale=1.0, time=148.10000000003492 - 16.0, stable=true, platform=4)
   let frames = t.replay_frames(run_web_controls)
   let apart = frames.filter(fn(f) { f.1 != f.2 })

@@ -144,13 +144,14 @@ Only for these, which the framework knows by itself:
   | Android | `host-android.yml`: an x86_64 emulator (API 34, google_apis, pixel_7; `ABI=x86_64` build) on ubuntu-24.04 | 9 frames the same | each answer the same | `android_controls` |
   | Windows | `host-windows.yml`: windows-latest, WARP | 9 frames the same | each answer the same | `windows_controls` |
   | web | `host-web.yml`: headless Chromium (SwiftShader's WebGL2) on ubuntu-24.04 | 9 frames the same | each answer the same | `web_controls` |
-  | macOS | our own machines only, by hand (no runner of ours is registered with the repository; GitHub's macOS runner is not used for this): `scripts/host_contract.sh mac …` on Studio or Mini1 | 9 frames the same (Studio, 2026-10-20) | each answer of `mini1_controls` and `drive_controls` the same on Studio | `mini1_*`, `drive_controls` (Mini1's) |
+  | macOS | `host-mac.yml`: Mini1 (mbui's runner, `[self-hosted, mbui-render]`; never a fork's pull request), a window | 9 frames the same (also on Studio, by hand) | each answer of `mini1_controls` the same (Mini1's own; Studio's text was the same too) | `mini1_*`, `drive_controls` (Mini1's) |
 
   Each workflow runs when its host's code changes (the host's files in src/host, its scripts, these scripts, its kept
   run). What a tape does not keep yet and a host must therefore have as a Tester plays it: the system's reduced motion
   (`@host.reduce_motion`; Windows' runner has "Show animations" off, turned on before the run) and reduced
   transparency, the system's dark, the window's inset. Kept by the framework (on DRAWHASH, given by `replay_frames`)
-  they would need no such care.
+  they would need no such care. The kitdemo pages' own state, which a kept run's test starts from, is put back by `reset`
+  (src/kitdemo/reset.mbt); detlint's `globals` has src/kitdemo among its roots, so a global it misses fails.
 - **Image decoding** is checked apart: each host's decoded pixels of a fixed set of images, to the byte.
 - **The system's own views** (a web page, a video) are outside mbui's drawing: only where and how large they are
   placed is checked (a Tester's `views`).

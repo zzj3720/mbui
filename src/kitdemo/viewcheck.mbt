@@ -1,11 +1,15 @@
 // The native views' contract (docs/determinism.md, "What is compared, and where"; scripts/host_contract.sh HOST views):
-// on a real host, MBUI_VIEWCHECK=1: a video's view placed between pixels (a 16:9 picture fitted in 366 across, its top
-// 147.3625 down), what the app told the host on the log (VIEWTOLD, in device pixels: ui's native.mbt) beside where the
+// on a real host, MBUI_VIEWCHECK=1: a video's view and a page's placed between pixels (a 16:9 picture fitted in 366
+// across, its top 147.3625 down; a page under it at 410.4375, 120.25 tall), each kind the host has (Windows has no
+// video player yet: its page alone), what the app told the host on the log (VIEWTOLD, in device pixels: ui's native.mbt) beside where the
 // host put it (VIEWAT, each host's own), then `VIEWCHECK done` and the app's end. The two the same, on whole device
 // pixels, or the contract fails: else the row its edge half covers shows what is under the canvas.
 
 ///|
 let view_check_view : Ref[@ui.NativeView?] = Ref(None)
+
+///|
+let view_check_page : Ref[@ui.NativeView?] = Ref(None)
 
 ///|
 /// How long the view is left placed before the run ends: the host's placing done by then (Android's, on its main
@@ -22,8 +26,20 @@ fn view_check_run(c : @ui.Ctx) -> Unit {
       v
     }
   }
-  // (a picture fitted between pixels: 147.3625 down, 205.875 tall)
-  c.native(v, h=Px(400.0), content=Some((12.0, 147.3625, 366.0, 205.875))) |> ignore
+  let p = match view_check_page.val {
+    Some(p) => p
+    None => {
+      let p = @ui.NativeView::page("<html><body style=\"margin:0;background:#888\"></body></html>")
+      view_check_page.val = Some(p)
+      p
+    }
+  }
+  // (a picture fitted between pixels: 147.3625 down, 205.875 tall; a page under it, its top 410.4375 down)
+  c.column(fn() {
+    c.native(v, h=Px(400.0), content=Some((12.0, 147.3625, 366.0, 205.875))) |> ignore
+    c.native(p, h=Px(200.0), content=Some((12.0, 10.4375, 366.0, 120.25))) |> ignore
+  })
+  |> ignore
   if @kit.after(c, "viewcheck", true, view_check_ms) {
     @host.log("VIEWCHECK done")
     @host.exit(0)

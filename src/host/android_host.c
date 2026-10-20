@@ -1943,10 +1943,20 @@ static JNIEnv *streams_env(void) {
 
 static GLuint stream_tex(int id) { return id > 0 && id < stream_cap ? stream_texs[id] : 0; }
 
+// A Java exception out of a call into Streams: logged (its stack on logcat) and cleared, so the GL thread's next JNI
+// call does not find it pending (CheckJNI aborts the process on that).
+static int streams_threw(JNIEnv *env) {
+  if (!(*env)->ExceptionCheck(env)) return 0;
+  (*env)->ExceptionDescribe(env);
+  (*env)->ExceptionClear(env);
+  return 1;
+}
+
 static void streams_lost(JNIEnv *env) {
   if (!streams_cls) return;
   for (int i = 0; i < stream_cap; i++) stream_texs[i] = 0;
   (*env)->CallStaticVoidMethod(env, streams_cls, m_st_lost);
+  streams_threw(env);
 }
 
 JNIEXPORT void JNICALL Java_dev_mbui_Streams_texture(JNIEnv *env, jclass c, jint id, jint tex) {
@@ -2004,13 +2014,15 @@ JNIEXPORT jbyteArray JNICALL Java_dev_mbui_Streams_annexB(JNIEnv *env, jclass c,
 
 int32_t mb_host_stream_open(void) {
   JNIEnv *env = streams_env();
-  return (*env)->CallStaticIntMethod(env, streams_cls, m_st_open);
+  jint id = (*env)->CallStaticIntMethod(env, streams_cls, m_st_open);
+  return streams_threw(env) ? 0 : id;
 }
 
 void mb_host_stream_h264(int32_t id, moonbit_bytes_t avcc, int32_t w, int32_t h) {
   JNIEnv *env = streams_env();
   jbyteArray b = jbytes(env, avcc);
   (*env)->CallStaticVoidMethod(env, streams_cls, m_st_h264, id, b, w, h);
+  streams_threw(env);
   (*env)->DeleteLocalRef(env, b);
 }
 
@@ -2018,6 +2030,7 @@ void mb_host_stream_frame(int32_t id, moonbit_bytes_t data, int32_t key, double 
   JNIEnv *env = streams_env();
   jbyteArray b = jbytes(env, data);
   (*env)->CallStaticVoidMethod(env, streams_cls, m_st_frame, id, b, key ? JNI_TRUE : JNI_FALSE, ts);
+  streams_threw(env);
   (*env)->DeleteLocalRef(env, b);
 }
 
@@ -2025,12 +2038,14 @@ void mb_host_stream_jpeg(int32_t id, moonbit_bytes_t data, double ts) {
   JNIEnv *env = streams_env();
   jbyteArray b = jbytes(env, data);
   (*env)->CallStaticVoidMethod(env, streams_cls, m_st_jpeg, id, b, ts);
+  streams_threw(env);
   (*env)->DeleteLocalRef(env, b);
 }
 
 moonbit_string_t mb_host_stream_next(int32_t id) {
   JNIEnv *env = streams_env();
   jstring s = (*env)->CallStaticObjectMethod(env, streams_cls, m_st_next, id);
+  if (streams_threw(env) || !s) return moonbit_make_string_raw(0);
   moonbit_string_t out = mstr(env, s);
   (*env)->DeleteLocalRef(env, s);
   return out;
@@ -2039,14 +2054,17 @@ moonbit_string_t mb_host_stream_next(int32_t id) {
 void mb_host_stream_show(int32_t id, double ts) {
   JNIEnv *env = streams_env();
   (*env)->CallStaticVoidMethod(env, streams_cls, m_st_show, id, ts);
+  streams_threw(env);
 }
 
 void mb_host_stream_close(int32_t id) {
   JNIEnv *env = streams_env();
   (*env)->CallStaticVoidMethod(env, streams_cls, m_st_close, id);
+  streams_threw(env);
 }
 
 int32_t mb_host_h264_here(void) {
   JNIEnv *env = streams_env();
-  return (*env)->CallStaticBooleanMethod(env, streams_cls, m_st_here) ? 1 : 0;
+  jboolean here = (*env)->CallStaticBooleanMethod(env, streams_cls, m_st_here);
+  return !streams_threw(env) && here ? 1 : 0;
 }

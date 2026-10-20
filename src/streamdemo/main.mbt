@@ -3,7 +3,7 @@
 // screen's station sends them: at most two ahead of the last one said shown. Each frame said shown and the decoder
 // broken go on the log ("STREAM shown TS", "STREAM broken"), then "STREAM done" once every frame was. The picture is
 // drawn contained in the window, the frame's time over it. For the hosts' checks: `APP=streamdemo scripts/mac.sh`,
-// `scripts/android.sh` (a run at its rest shows the last frame).
+// `scripts/android.sh` (a run at its rest shows the last frame), scripts/android-streams.sh.
 
 ///|
 let stream : Ref[@ui.Stream?] = Ref(None)
@@ -83,6 +83,23 @@ fn feed(s : @ui.Stream) -> Unit {
 }
 
 ///|
+/// MBUI_STREAM_REOPEN=N: the stream closed once frame N is said shown (its decoder busy with those after it) and a
+/// new one fed from the start, as the viewer does going from one screen to another; "STREAM done" the new one's.
+fn reopen_at() -> Int {
+  let mut n = 0
+  for c in @ui.env("MBUI_STREAM_REOPEN") {
+    if c < '0' || c > '9' {
+      return 0
+    }
+    n = n * 10 + (c.to_int() - '0'.to_int())
+  }
+  n
+}
+
+///|
+let reopened : Ref[Bool] = Ref(false)
+
+///|
 fn start() -> Unit {
   let s = @ui.Stream::new(
     shown=fn(ts) {
@@ -90,6 +107,18 @@ fn start() -> Unit {
       let n = (ts / 100.0).to_int()
       if n > acked.val {
         acked.val = n
+      }
+      if !reopened.val && reopen_at() > 0 && acked.val >= reopen_at() {
+        reopened.val = true
+        match stream.val {
+          Some(old) => old.close()
+          None => ()
+        }
+        @ui.log("STREAM reopen")
+        fed.val = 0
+        acked.val = 0
+        start()
+        return
       }
       if acked.val == total() {
         @ui.log("STREAM done")

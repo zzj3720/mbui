@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -56,6 +57,20 @@ final class Streams {
     static native void texture(int id, int tex);
 
     private static final HashMap<Integer, Stream> streams = new HashMap<>();
+    /** SurfaceTextures whose decoder has stopped, let go of on the GL thread (their context's) as it next calls here. */
+    private static final ConcurrentLinkedQueue<SurfaceTexture> stopped = new ConcurrentLinkedQueue<>();
+
+    /** A SurfaceTexture and its Surface done with (the decoder's thread, once the decoder on it stopped). */
+    static void letGo(SurfaceTexture t, Surface s) {
+        if (t == null) return;
+        s.release();
+        stopped.add(t);
+        Host.requestFrame();
+    }
+
+    private static void dropSurfaces() {
+        for (SurfaceTexture t; (t = stopped.poll()) != null; ) t.release();
+    }
     private static int nextId;
 
     /** Whether there is an H.264 decoder here at all (else the app asks for JPEG only). */
@@ -80,6 +95,7 @@ final class Streams {
     private static int h264Known;
 
     static int open() {
+        dropSurfaces();
         int id = ++nextId;
         streams.put(id, new Stream(id));
         return id;
@@ -103,6 +119,7 @@ final class Streams {
     }
 
     static String next(int id) {
+        dropSurfaces();
         Stream s = streams.get(id);
         if (s == null) return "";
         synchronized (s.events) {
@@ -112,6 +129,7 @@ final class Streams {
     }
 
     static void show(int id, double ts) {
+        dropSurfaces();
         Stream s = streams.get(id);
         if (s != null) s.show(ts);
     }
@@ -124,7 +142,15 @@ final class Streams {
     /** The GL context was lost (android_host.c images_lost): every stream's textures made anew in the new one. */
     static void lost() {
         blit = 0;
-        for (Stream s : streams.values()) s.lost();
+        // MBUI_STREAM_HOLD_DECODER=MS (a test's, android-streams.sh anew): each decoder's thread held that long first,
+        // as on a CPU it does not get, so the GL thread's frames after the new context come before anything the
+        // decoder does about it
+        int hold = 0;
+        try { hold = Integer.parseInt(System.getenv("MBUI_STREAM_HOLD_DECODER")); } catch (Exception e) {}
+        for (Stream s : streams.values()) {
+            if (hold > 0 && s.video != null) s.video.hold(hold);
+            s.lost();
+        }
     }
 
     /** A time as the app's events say it: a whole number without a fraction. */
@@ -239,10 +265,8 @@ final class Streams {
 
         /** A SurfaceTexture on a new external texture of the context there is, handed to the decoder (GL thread). */
         void surfaceAnew() {
-            if (st != null) {
-                st.release();
-                surface.release();
-            }
+            SurfaceTexture oldSt = st;
+            Surface oldSurface = surface;
             int[] t = {0};
             GLES30.glGenTextures(1, t, 0);
             ext = t[0];
@@ -253,7 +277,8 @@ final class Streams {
             GLES30.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
             st = new SurfaceTexture(ext);
             surface = new Surface(st);
-            video.surface(st, surface);
+            // the old one let go once the decoder drawing on it has stopped (on its thread)
+            video.surface(st, surface, oldSt, oldSurface);
         }
 
         void jpeg(byte[] data, double ts) {
@@ -318,12 +343,15 @@ final class Streams {
         }
 
         void close() {
-            if (video != null) video.release();
-            if (jpeg != null) jpeg.release();
-            if (st != null) {
+            // the SurfaceTexture let go once the decoder drawing on it has stopped (on its thread)
+            if (video != null) video.release(st, surface);
+            else if (st != null) {
                 st.release();
                 surface.release();
             }
+            if (jpeg != null) jpeg.release();
+            st = null;
+            surface = null;
             int[] t = {tex, ext};
             GLES30.glDeleteTextures(2, t, 0);
             texture(id, 0);
@@ -384,7 +412,8 @@ final class Streams {
         private boolean slotBusy, slotReady;
         private double slotTs;
         private int available;
-        private SurfaceTexture st;
+        /** Set on the GL thread (which latches from it), read on the decoder's (whose frames arrive on it). */
+        private volatile SurfaceTexture st;
 
         H264(Stream stream) {
             this.stream = stream;
@@ -394,18 +423,28 @@ final class Streams {
         }
 
         /** The SurfaceTexture it draws on (made on the GL thread), new: a decoder on it starts anew, from a key frame. */
-        void surface(SurfaceTexture t, Surface s) {
+        void surface(SurfaceTexture t, Surface s, SurfaceTexture oldT, Surface oldS) {
             t.setOnFrameAvailableListener(this::arrived, handler);
-            handler.post(() -> {
+            // the GL thread latches from it from now on (the old one's frames arriving after are not counted)
+            synchronized (slot) {
                 st = t;
+                available = 0;
+                // a frame told and not shown yet was on the old one: let go with it (its "f" still comes)
+                if (slotReady) slotBusy = slotReady = false;
+            }
+            handler.post(() -> {
                 surface = s;
-                synchronized (slot) {
-                    available = 0;
-                    // a frame told and not shown yet was on the old one: let go with it (its "f" still comes)
-                    if (slotReady) slotBusy = slotReady = false;
-                }
                 if (start()) stream.say("b");
+                letGo(oldT, oldS);
             });
+        }
+
+        /** Its thread held `ms` from now (a test's: MBUI_STREAM_HOLD_DECODER). */
+        void hold(int ms) {
+            synchronized (slot) {
+                Host.log("stream " + stream.id + ": decoder held " + ms + " ms, a frame told and not shown: " + slotReady);
+            }
+            handler.post(() -> android.os.SystemClock.sleep(ms));
         }
 
         void configure(byte[] avcc, int w, int h) {
@@ -440,10 +479,11 @@ final class Streams {
             });
         }
 
-        void release() {
+        void release(SurfaceTexture t, Surface s) {
             handler.post(() -> {
                 released = true;
                 stop();
+                letGo(t, s);
                 thread.quitSafely();
             });
         }
@@ -554,9 +594,9 @@ final class Streams {
 
         /** A frame reached the SurfaceTexture (the decoder's thread): the app told, if it is the one released. */
         private void arrived(SurfaceTexture t) {
-            if (t != st) return;
             String said = null;
             synchronized (slot) {
+                if (t != st) return;
                 available++;
                 if (slotBusy && !slotReady) {
                     slotReady = true;
@@ -576,7 +616,15 @@ final class Streams {
                 // the one released: past any that arrived from a decoder before (its timestamp, ns, the frame's time)
                 long want = (long) ts * 1000L;
                 while (available > 0) {
-                    t.updateTexImage();
+                    try {
+                        t.updateTexImage();
+                    } catch (RuntimeException e) {
+                        // (let go since it was told: the picture stays as it was)
+                        Host.log("stream " + stream.id + ": updateTexImage: " + e);
+                        available = 0;
+                        got = false;
+                        break;
+                    }
                     available--;
                     got = true;
                     if (t.getTimestamp() == want) break;

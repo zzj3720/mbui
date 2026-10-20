@@ -68,3 +68,20 @@ test "panic a box sized by its own laid width never holds still, and says which"
   )
   t.draw()
 }
+
+///|
+test "words read before they are first laid out are there in the frame that lays them out" {
+  let read : Array[Bool] = []
+  let t = @ui.Tester::new(
+    fn(c) {
+      read.push(c.words_of("w") is Some(_))
+      let b = c.column(w=Px(100.0), fn() { c.rich([@ui.plain("hello")], size=10.0) |> ignore })
+      c.words(b, "w")
+    },
+    w=300.0,
+    h=100.0,
+  )
+  // the first frame: none as it first built, there as it was built again
+  assert_eq(read, [false, true])
+  t.assert_idle()
+}

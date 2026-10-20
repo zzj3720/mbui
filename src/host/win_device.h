@@ -127,7 +127,7 @@ static void device_tell(mb_outside_fn tell) {
   for (int i = 0; i < CLIP_READS; i++) {
     if (clip_reads[i].id && !clip_reads[i].told) {
       clip_reads[i].told = 1;
-      if (tell) tell(9, clip_reads[i].id, 1);
+      if (tell) tell(MB_OUTSIDE_CLIP, clip_reads[i].id, 1);
     }
   }
 }

@@ -33,9 +33,6 @@ final class Device {
     /** The focus is a key catcher's (@host.key_catch): MBView's keys and input connection are the catcher's. */
     static volatile boolean catching;
 
-    /** The kind of the clipboard read's event (src/ui/hostcall.mbt's outside_clip). */
-    static final int OUTSIDE_CLIP = 9;
-
     // ScreenClips.kt's bounds (device.mbt's clip_*_max)
     static final int PNG_MAX = 8 * 1024 * 1024;
     static final int SOURCE_MAX = 32 * 1024 * 1024;
@@ -135,7 +132,7 @@ final class Device {
             new Thread(() -> {
                 if (got != null && c != null) readClip(c, got, r);
                 r.state = 1;
-                Native.tell(OUTSIDE_CLIP, id, 1);
+                Native.tell(Native.OUTSIDE_CLIP, id, 1);
             }, "mbui-clip-read").start();
         });
         return id;

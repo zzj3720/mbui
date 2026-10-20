@@ -164,7 +164,7 @@ static int clip_make_png(NSData *src, NSData **out) {
 }
 
 // The pasteboard read now (its words, its picture's bytes as they are there), the picture made a PNG off the main
-// thread, then told (kind 9, as src/ui/hostcall.mbt's outside_clip).
+// thread, then told (MB_OUTSIDE_CLIP).
 int32_t mb_host_clip_read(void) {
   if (!clip_reads) clip_reads = [NSMutableDictionary new];
   int32_t id = clip_next++;
@@ -193,7 +193,7 @@ int32_t mb_host_clip_read(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
       if (!clip_reads[@(id)]) return;
       clip_reads[@(id)] = @{@"state" : @1, @"text" : text, @"picture" : @(kind), @"png" : png ?: [NSData data]};
-      mb_host_outside(9, id, 1);
+      mb_host_outside(MB_OUTSIDE_CLIP, id, 1);
       mb_host_request_frame();
     });
   });

@@ -109,7 +109,7 @@
   // moment (shot_at) keeps its clock still while any is.
   // its kinds, named as src/ui/hostcall.mbt's outside_* (this host has no picker, gallery, marks or update; a frame
   // grab asked of a video fails at once, told so)
-  const OUTSIDE_IMAGE = 1, OUTSIDE_VIEW = 2, OUTSIDE_GRAB = 6;
+  const OUTSIDE_IMAGE = 1, OUTSIDE_VIEW = 2, OUTSIDE_GRAB = 6, OUTSIDE_CLIP = 9;
   let outside = null, awaiting = 0, why = '';
   const told = new Set();
   H.setOutside = (f) => { outside = f; return true; };
@@ -1482,7 +1482,7 @@
     const v = window.visualViewport;
     return v ? Math.max(0, window.innerHeight - v.height - v.offsetTop) : 0;
   };
-  const OUTSIDE_CLIP = 9, PNG_MAX = 8 << 20, SOURCE_MAX = 32 << 20, PIXELS_MAX = 16 * 1024 * 1024;
+  const PNG_MAX = 8 << 20, SOURCE_MAX = 32 << 20, PIXELS_MAX = 16 * 1024 * 1024;
   const clips = new Map();
   let clipNext = 1;
   async function asPng(blob) {

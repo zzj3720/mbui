@@ -222,7 +222,8 @@ fn layout_rich(r : Rich, max_w : Double) -> RichLayout {
     (a0, d0)
   }
   let lh = if r.line > 0.0 { r.line } else { own0 }
-  let (pitch0, base_asc, extra) = set_line(lh, a0, d0, sc)
+  let px = whole_pixel_lines(r.size, r.weight)
+  let (pitch0, base_asc, extra) = set_line(lh, a0, d0, sc, px)
   let base_desc = pitch0 - base_asc
   let sb = StringBuilder()
   let run_start = []
@@ -253,7 +254,7 @@ fn layout_rich(r : Rich, max_w : Double) -> RichLayout {
     } else {
       (a, d)
     }
-    let (l, lasc, _) = set_line(lh * size / r.size, a, d, sc)
+    let (l, lasc, _) = set_line(lh * size / r.size, a, d, sc, px)
     run_start.push(off)
     run_size.push(size)
     run_a.push(a)

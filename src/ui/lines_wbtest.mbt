@@ -5,7 +5,7 @@
 ///|
 fn probe_line(line : Double, asc : Int, desc : Int) -> (Int, Int, Int) {
   let sc = 2.625
-  let (pitch, ascent, extra) = set_line(line, asc.to_double() / sc, desc.to_double() / sc, sc)
+  let (pitch, ascent, extra) = set_line(line, asc.to_double() / sc, desc.to_double() / sc, sc, true)
   ((pitch * sc).round().to_int(), (ascent * sc).round().to_int(), (extra * sc).round().to_int())
 }
 
@@ -34,4 +34,20 @@ test "a font taller than its line is not cut" {
   assert_eq(probe_line(17.0 * 1.4, 51, 13), (63, 51, 1))
   // 15 Chinese in lines of 15, two lines: Compose's baselines 45 and 85, 96 high (2 × 40 + 16)
   assert_eq(probe_line(15.0, 45, 11), (40, 45, 16))
+}
+
+///|
+test "every line set by the first line's fonts" {
+  // Compose measures the first line and sets the lines after it the same (the span's metrics worked out once), what
+  // fonts they are drawn in: "Sign in first\n然后再来分享这个链接" at 15 in 1.4 lines has its Chinese second line's
+  // baseline at 97 = 56 + 41, the Latin first line's, not 56 + 45; "然后再来分享\nSign in first" in lines of 28 its
+  // Latin second line's at 128 = 74 + 54, the Chinese first line's
+  let (pitch, first, _) = probe_line(15.0 * 1.4, 37, 10)
+  assert_eq((first, pitch + first), (41, 97))
+  let (pitch, first, _) = probe_line(28.0, 45, 11)
+  assert_eq((first, pitch + first), (54, 128))
+  // the Latin first line in lines of 15 (40 px): baselines 37 and 77 (88 high in Compose, its last line's bottom a
+  // pixel lower than the first line's font says: 2 × 40 + 7 here)
+  let (pitch, first, extra) = probe_line(15.0, 37, 10)
+  assert_eq((first, pitch + first, 2 * pitch + extra), (37, 77, 87))
 }

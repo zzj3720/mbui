@@ -109,6 +109,8 @@ final class MBText {
         p.getFontMetricsInt(HAN, 0, HAN.length(), 0, HAN.length(), false, c);
         out[3] = -c.ascent / d;
         out[4] = c.descent / d;
+        // lines set on whole pixels, as StaticLayout sets them
+        out[5] = 1;
     }
 
     static int shape(String text, double size, int weight, int style, double[] out) {

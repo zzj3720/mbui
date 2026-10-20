@@ -80,8 +80,9 @@ struct TextCache {
   fonts : Array[FontShapes]
   // strings shaped, in all fonts
   mut shaped : Int
-  // ascent, descent, line height; the ascent and descent of the font Han falls back to
-  metrics : Map[Int, (Double, Double, Double, Double, Double)]
+  // ascent, descent, line height; the ascent and descent of the font Han falls back to; whether the host sets lines
+  // on whole pixels
+  metrics : Map[Int, (Double, Double, Double, Double, Double, Bool)]
   glyphs : Map[Int, Glyph]
   mut generation : Int
   buf : FixedArray[Double]
@@ -116,7 +117,7 @@ fn font_metrics(
   weight : Int,
   style? : Int = 0,
 ) -> (Double, Double, Double) {
-  let (a, d, l, _, _) = all_metrics(size, weight, style)
+  let (a, d, l, _, _, _) = all_metrics(size, weight, style)
   (a, d, l)
 }
 
@@ -124,20 +125,34 @@ fn font_metrics(
 /// Ascent and descent of the font a Han ideograph falls back to at this size (Noto Sans CJK, PingFang, Microsoft
 /// YaHei): taller than most Latin faces. A host that does not say (a kept text from before) answers the font's own.
 fn han_metrics(size : Double, weight : Int, style? : Int = 0) -> (Double, Double) {
-  let (_, _, _, a, d) = all_metrics(size, weight, style)
+  let (_, _, _, a, d, _) = all_metrics(size, weight, style)
   (a, d)
 }
 
 ///|
-fn all_metrics(size : Double, weight : Int, style : Int) -> (Double, Double, Double, Double, Double) {
+/// Whether the host sets a line of words on whole device pixels, as Android's StaticLayout does (its font metrics
+/// whole pixels too): the sixth number it answers of font_metrics, 1. A host that does not say does not.
+fn whole_pixel_lines(size : Double, weight : Int, style? : Int = 0) -> Bool {
+  all_metrics(size, weight, style).5
+}
+
+///|
+fn all_metrics(size : Double, weight : Int, style : Int) -> (Double, Double, Double, Double, Double, Bool) {
   let key = ((size * 10.0).to_int() * 1000 + weight) * 8 + style
   match text_cache.metrics.get(key) {
     Some(m) => m
     None => {
-      let o = FixedArray::make(5, -1.0)
+      let o = FixedArray::make(6, -1.0)
       h_font_metrics(size, weight, style, o)
       // (-1: not said)
-      let m = (o[0], o[1], o[2], if o[3] < 0.0 { o[0] } else { o[3] }, if o[4] < 0.0 { o[1] } else { o[4] })
+      let m = (
+        o[0],
+        o[1],
+        o[2],
+        if o[3] < 0.0 { o[0] } else { o[3] },
+        if o[4] < 0.0 { o[1] } else { o[4] },
+        o[5] == 1.0,
+      )
       text_cache.metrics[key] = m
       m
     }
@@ -171,15 +186,12 @@ fn words_cjk(text : String) -> Bool {
 /// How a line of words is set in a line `line` high, its font reaching `asc` above the baseline and `desc` below, as
 /// Android sets it (Compose's line height: LineHeightStyle Center, Trim.None, Mode.Tight): the room over the font
 /// shared out above and below; a font taller than its line not cut (the first line keeps the font's top, the last its
-/// bottom). Where the font's metrics are whole device pixels (Android's FontMetricsInt) the line is too, rounded up,
-/// and the room is shared in whole pixels, below the bigger half; elsewhere (Apple's, Windows' fractional metrics)
-/// as asked, halved.
+/// bottom). On a host that sets lines on whole pixels (`px`: Android's, whole_pixel_lines) the line is rounded up to
+/// one and the room shared in them, below the bigger half; elsewhere the line is as asked and the room halved.
 /// (pitch: from a line to the next; the first line's baseline from the top; how much more than the lines' pitch
 /// the words are high.)
-fn set_line(line : Double, asc : Double, desc : Double, sc : Double) -> (Double, Double, Double) {
+fn set_line(line : Double, asc : Double, desc : Double, sc : Double, px : Bool) -> (Double, Double, Double) {
   let sc = if sc > 0.0 { sc } else { 1.0 }
-  let whole = fn(v : Double) { (v * sc - (v * sc).round()).abs() < 1.0e-4 }
-  let px = whole(asc) && whole(desc)
   let pitch = if px { (line * sc - 1.0e-6).ceil() / sc } else { line }
   let room = pitch - asc - desc
   if room >= 0.0 {
@@ -692,7 +704,7 @@ fn layout_text(
   } else {
     (asc, desc)
   }
-  let (line_h, ascent, extra) = set_line(if line > 0.0 { line } else { own_h }, asc, desc, g().scale)
+  let (line_h, ascent, extra) = set_line(if line > 0.0 { line } else { own_h }, asc, desc, g().scale, whole_pixel_lines(size, weight))
   // right to left: each line's clusters in their visual order
   let lv = match s.bidi {
     Some(b) => {

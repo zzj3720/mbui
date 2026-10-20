@@ -165,6 +165,7 @@ extern "C" void mb_host_font_metrics(double size, int32_t weight, int32_t style,
   family_metrics(L"Microsoft YaHei UI", weight, style, &h);
   out[3] = size * h.ascent / h.designUnitsPerEm;
   out[4] = size * h.descent / h.designUnitsPerEm;
+  out[5] = 0;  // lines as asked, not on whole pixels
 }
 
 static uint32_t hash(const WCHAR *s, int len, double size, int weight, int style) {

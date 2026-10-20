@@ -1128,6 +1128,47 @@ pub fn Tester::drawn_of(self : Tester, s : String) -> (Double, Double)? {
 }
 
 ///|
+/// How the node keyed `what` (its id's key, as built: c.id(what)), else the first text node containing `what`, was
+/// drawn in the last frame over how it is laid out: its scale and opacity, its own look's and all its ancestors'
+/// together (a card shrunk to 90% as it goes: (0.9, 1.0)). None when there is no such node.
+pub fn Tester::look_of(self : Tester, what : String) -> (Double, Double)? {
+  ignore(self)
+  let c = g()
+  let id = c.id(what)
+  let mut found = -1
+  for i in 0..<c.count {
+    if c.nodes[i].id == id {
+      found = i
+      break
+    }
+  }
+  if found < 0 {
+    for i in 0..<c.count {
+      let n = c.nodes[i]
+      if (n.kind == kind_text || n.kind == kind_rich) && n.text.contains(what) {
+        found = i
+        break
+      }
+    }
+  }
+  guard found >= 0 else { return None }
+  let mut scale = 1.0
+  let mut alpha = 1.0
+  let mut p = found
+  while p >= 0 {
+    match c.drawn_entry(p) {
+      Some(e) => {
+        scale = scale * e.look.sx
+        alpha = alpha * e.look.alpha
+      }
+      None => ()
+    }
+    p = c.nodes[p].parent
+  }
+  Some((scale, alpha))
+}
+
+///|
 /// A tap and the one frame after it, nothing settled (what moves after it is the test's to step).
 pub fn Tester::tap_once(self : Tester, x : Double, y : Double) -> Unit {
   on_pointer(0, x, y, 0)

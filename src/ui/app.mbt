@@ -91,9 +91,9 @@ fn on_frame(w : Double, h : Double, scale : Double, t : Double) -> Unit {
   }
   if c.wants_frame || bench.mode > 0 {
     h_request_frame()
-  } else if c.motion_left || c.cycling {
-    // what moves on is drawn as the clock goes, on the host's next frame: no frame is owed at this moment (a
-    // Tester's draw draws none for it; its run_for does, as its time goes)
+  } else if c.motion_left || c.cycling || c.fiber_frame {
+    // what moves on (a motion, a fiber stepping a frame at a time) is drawn as the clock goes, on the host's next
+    // frame: no frame is owed at this moment (a Tester's draw draws none for it; its run_for does, as its time goes)
     c.wants_frame = true
     h_request_frame_on()
   } else if c.wake_at > 0.0 {

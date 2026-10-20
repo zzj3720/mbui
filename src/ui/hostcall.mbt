@@ -807,8 +807,115 @@ fn h_view_site_next(id : Int) -> String {
 /// tracer and the tape as `{"site":{"view":N,"event":E}}`.
 fn site_told(id : Int, event : String) -> Unit {
   guard views_tracer.val is Some(_) || taping() else { return }
-  let e : Json = @json.parse(event) catch { _ => Json::string(event) }
-  view_say({ "site": Json::object({ "view": Json::number(id.to_double()), "event": e }) })
+  view_say({ "site": Json::object({ "view": Json::number(id.to_double()), "event": site_event_kept(event) }) })
+}
+
+///|
+/// What a record keeps of a site's page's event: all but what would carry who it is (a record is committed with the
+/// tests): a credential's header (Authorization, Cookie, Set-Cookie, one whose name says token, key, secret, auth or
+/// session) and such a field of the path's query, each kept as "-", what a Tester's host then gives in its place.
+fn site_event_kept(event : String) -> Json {
+  match (try Some(@json.parse(event)) catch { _ => None }) {
+    Some(Object(m)) => {
+      let out = m.copy()
+      match m.get("headers") {
+        Some(Array(hs)) =>
+          out["headers"] = Json::array(
+            hs.map(fn(h) {
+              match h {
+                Array([String(k), String(_)]) if secret_name(k) => Json::array([Json::string(k), Json::string("-")])
+                _ => h
+              }
+            }),
+          )
+        _ => ()
+      }
+      match m.get("path") {
+        Some(String(p)) => out["path"] = Json::string(query_kept(p))
+        _ => ()
+      }
+      Json::object(out)
+    }
+    _ => Json::string("-")
+  }
+}
+
+///|
+/// What a record keeps of a site's request's body: a JSON object's or a form's credential fields "-" (as
+/// site_event_kept's); other words that name one, "-" whole; else as it was.
+fn site_body_kept(b : Bytes) -> Bytes {
+  // (its bytes a char each: the JSON's or the form's names are ASCII, what else is in it kept byte for byte)
+  let s = String::from_array(Array::makei(b.length(), fn(i) { b[i].to_int().unsafe_to_char() }))
+  let bytes_of = fn(t : String) -> Bytes {
+    Bytes::makei(t.length(), fn(i) { t.unsafe_charcode_at(i).to_byte() })
+  }
+  match (try Some(@json.parse(s)) catch { _ => None }) {
+    Some(Object(_) as j) => {
+      let kept = json_kept(j)
+      if kept == j {
+        b
+      } else {
+        bytes_of(kept.stringify())
+      }
+    }
+    _ =>
+      if s.contains("=") && !s.contains(" ") && !s.contains("\n") {
+        let kept = query_kept("?" + s)
+        let kept = kept.unsafe_substring(start=1, end=kept.length())
+        if kept == s {
+          b
+        } else {
+          bytes_of(kept)
+        }
+      } else if secret_name(s) {
+        b"-"
+      } else {
+        b
+      }
+  }
+}
+
+///|
+/// A JSON value with its objects' credential fields "-".
+fn json_kept(j : Json) -> Json {
+  match j {
+    Object(m) => {
+      let out : Map[String, Json] = {}
+      for k, v in m {
+        out[k] = if secret_name(k) { Json::string("-") } else { json_kept(v) }
+      }
+      Json::object(out)
+    }
+    Array(xs) => Json::array(xs.map(json_kept))
+    _ => j
+  }
+}
+
+///|
+/// Whether a header's or a query field's name says it carries a credential.
+fn secret_name(name : String) -> Bool {
+  let n = name.to_lower()
+  n == "cookie" ||
+  n == "set-cookie" ||
+  ["auth", "token", "key", "secret", "session", "password", "sig"].iter().any(fn(w) { n.contains(w) })
+}
+
+///|
+/// A path with its query's credential fields' values "-".
+fn query_kept(path : String) -> String {
+  match path.find("?") {
+    None => path
+    Some(q) => {
+      let fields = path.unsafe_substring(start=q + 1, end=path.length()).split("&").map(fn(f) {
+        let f = f.to_string()
+        match f.find("=") {
+          Some(i) if secret_name(f.unsafe_substring(start=0, end=i)) => f.unsafe_substring(start=0, end=i) + "=-"
+          _ => f
+        }
+      })
+      path.unsafe_substring(start=0, end=q) + "?" + fields.collect().join("&")
+    }
+  }
 }
 
 ///|
@@ -825,7 +932,7 @@ fn h_view_site_body(id : Int, req : Int) -> Bytes {
       if views_tracer.val is Some(_) || taping() {
         view_say({
           "sitebody": Json::object({ "view": Json::number(id.to_double()), "req": Json::number(req.to_double()) }),
-          "b": Json::string(hex_of(b)),
+          "b": Json::string(hex_of(site_body_kept(b))),
         })
       }
       b

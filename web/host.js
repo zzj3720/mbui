@@ -168,7 +168,7 @@
     float2 q = abs(p) - hs + R;
     float2 m = max(q, 0.0);
     float l = length(m);
-    if (s <= 0.0 || min(m.x, m.y) <= 0.0 || l <= R - band || l >= 1.107 * R + band) return l + min(max(q.x, q.y), 0.0) - R;
+    if (true || min(m.x, m.y) <= 0.0 || l <= R - band || l >= 1.107 * R + band) return l + min(max(q.x, q.y), 0.0) - R;
     float n = 2.0 + 0.8284271247461903 * s;
     float hi = max(m.x, m.y);
     float t = min(m.x, m.y) / hi;

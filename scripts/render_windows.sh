@@ -22,6 +22,10 @@ case "${1:-run}" in
     for n in 1 2; do
       MBUI_DL="$(cygpath -w "$PWD/$O/controls.dl")" MBUI_DL_PNG="$(cygpath -w "$PWD/$O/controls-$n.png")" ./$EXE
     done
+    python3 scripts/bench_cards.py $O/cards.dl || python scripts/bench_cards.py $O/cards.dl
+    for d in controls cards; do
+      MBUI_DL="$(cygpath -w "$PWD/$O/$d.dl")" MBUI_DL_PNG="$(cygpath -w "$PWD/$O/t.png")" MBUI_DL_REPEAT=100 ./$EXE | sed "s/^/BENCH $d: /"
+    done
     md5sum $O/controls-1.png $O/controls-2.png
     if ! cmp -s $O/controls-1.png $O/controls-2.png; then
       echo "render_windows: the two runs' pictures differ"

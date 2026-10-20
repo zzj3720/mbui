@@ -23,7 +23,7 @@
   "  float2 q = abs(p) - hs + R;\n" \
   "  float2 m = max(q, 0.0);\n" \
   "  float l = length(m);\n" \
-  "  if (s <= 0.0 || min(m.x, m.y) <= 0.0 || l <= R - band || l >= 1.107 * R + band) return l + min(max(q.x, q.y), 0.0) - R;\n" \
+  "  if (true || min(m.x, m.y) <= 0.0 || l <= R - band || l >= 1.107 * R + band) return l + min(max(q.x, q.y), 0.0) - R;\n" \
   "  float n = 2.0 + 0.8284271247461903 * s;\n" \
   "  float hi = max(m.x, m.y);\n" \
   "  float t = min(m.x, m.y) / hi;\n" \

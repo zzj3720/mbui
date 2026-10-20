@@ -240,6 +240,18 @@ fn main {
   }
   let (r, gg, b) = dl.clear
   draw(inst, n, r, gg, b)
+  // (bench-corners, not for main: the list drawn MBUI_DL_REPEAT more times, then read back: the time each)
+  let reps = num(arg("MBUI_DL_REPEAT")).to_int()
+  if reps > 0 {
+    snapshot(out) |> ignore
+    let t0 = @host.now()
+    for _ in 0..<reps {
+      draw(inst, n, r, gg, b)
+    }
+    snapshot(out) |> ignore
+    let t1 = @host.now()
+    say("mbui-render: timed \{reps} draws: \{(t1 - t0) / reps.to_double()} ms each")
+  }
   if !snapshot(out) {
     say("mbui-render: \{out}: not written")
     return

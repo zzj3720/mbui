@@ -929,11 +929,13 @@
   const streams = new Map();
   let nextStream = 0;
   // (a VideoDecoder that takes no H.264, as Chromium's own build has: asked once as the page loads, the app's first
-  // frame held until it is answered, so that h264_here is the same from the app's start)
+  // frame held until it is answered, so that h264_here is the same from the app's start). Asked of what a station
+  // sends: constrained baseline (its helper's VideoToolbox, AutoLevel: ScreenView.swift) at a 1920 × 1080 view's
+  // level, 4.2 (a viewer's maxWidth, Android's ScreenSession).
   let hasVideoDecoder = false;
   const h264Asked = typeof VideoDecoder === 'undefined'
     ? Promise.resolve()
-    : VideoDecoder.isConfigSupported({ codec: 'avc1.42C01F', optimizeForLatency: true })
+    : VideoDecoder.isConfigSupported({ codec: 'avc1.42E02A', codedWidth: 1920, codedHeight: 1080, optimizeForLatency: true })
       .then((r) => { hasVideoDecoder = !!r.supported; }, () => {});
   H.h264Here = () => (hasVideoDecoder ? 1 : 0);
   const num = (v) => String(v);

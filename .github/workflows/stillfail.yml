@@ -1,0 +1,58 @@
+# still.fail's mbui app (AFK-surf/still.fail apps/mbui) checked and tested against this mbui, on each pull request and
+# each push to main: mbui is ours, and a change to it that breaks the app is red here, before it is merged, not found
+# later as the app takes it in. The app's own scripts, as its check-mbui runs them (scripts/check.sh, test.sh,
+# screens.sh test), with MBUI this checkout. The app's branch of the same name as this pull request's when there is
+# one (what the change needs of the app, made with it and merged right after it), else its main.
+name: stillfail
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: stillfail-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [app, replay]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: mbui
+      - name: The app's branch (this pull request's name in AFK-surf/still.fail, else main)
+        id: ref
+        run: |
+          b="${{ github.head_ref }}"
+          if [ -n "$b" ] && git ls-remote --exit-code --heads https://github.com/AFK-surf/still.fail.git "$b" > /dev/null; then
+            echo "ref=$b" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: AFK-surf/still.fail
+          ref: ${{ steps.ref.outputs.ref }}
+          path: sf
+      - run: echo "still.fail at $(git -C sf rev-parse --short HEAD) (${{ steps.ref.outputs.ref }}), mbui at $(git -C mbui rev-parse --short HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v5
+        with: { node-version-file: sf/.node-version, package-manager-cache: false }
+      - name: MoonBit (as this repository's jobs have it)
+        uses: ./mbui/.github/actions/moonbit
+      - name: The app's check (detlint, js and native type-checked)
+        if: matrix.part == 'app'
+        env: { MBUI: "${{ github.workspace }}/mbui" }
+        run: TARGETS="js native" bash sf/apps/mbui/scripts/check.sh
+      - name: The app's tests (js, ${{ matrix.part }})
+        env: { MBUI: "${{ github.workspace }}/mbui" }
+        run: PARTS=${{ matrix.part }} LINES_OUT=40 bash sf/apps/mbui/scripts/test.sh
+      - name: The app's screens (src/sfscreens)
+        if: matrix.part == 'app'
+        env: { MBUI: "${{ github.workspace }}/mbui" }
+        run: bash sf/apps/mbui/scripts/screens.sh test

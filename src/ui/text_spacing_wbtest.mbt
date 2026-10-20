@@ -159,3 +159,29 @@ test "letter spacing in rich text: every run's clusters, in the code face too" {
     assert_eq(xs1[k] - xs0[k], 1.0 + 2.0 * k.to_double())
   }
 }
+
+///|
+test "words with letter spacing are copied as they were written: what is shaped with no ligatures stays the host's" {
+  // (U+E000: the fake host's ligature's second letter, made none by the spacing)
+  let words = "office fi\u{E000}les"
+  let t = Tester::new(
+    fn(c) {
+      c.mouse_drags_lists(false)
+      c.column(w=Fill(1.0), fn() {
+        c.selectable(fn() { c.rich([plain(words)], tracking=1.0) |> ignore })
+        c.text(words, tracking=1.0) |> ignore
+      })
+      |> ignore
+    },
+    w=400.0,
+    h=300.0,
+  )
+  let (_, y, _, h) = t.rect_of(words).unwrap()
+  t.drag(1.0, y + h / 2.0, 390.0, y + h / 2.0)
+  assert_eq(t.ctx().selected_text(), words)
+  t.key(13, mods=8)
+  assert_eq(t.clipboard(), words)
+  assert_false(t.clipboard().contains("\u{200C}"))
+  // and the plain text's lines, as shown and read out
+  assert_eq(t.lines_of("office").join(""), words)
+}

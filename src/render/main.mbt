@@ -15,10 +15,10 @@ priv struct Dl {
   mut h : Double
   mut scale : Double
   mut clear : (Double, Double, Double)
-  /// glyphs: where the list's atlas had them ("U V", as written) to what they are
-  glyphs : Map[String, (Double, Int, Int, Int, String)]
-  /// images: id, px, source, bytes (-1: none)
-  images : Array[(Int, Int, String, Int)]
+  /// glyphs, by their number: what they are (font, cluster, words)
+  glyphs : Map[Int, (Double, Int, Int, Int, String)]
+  /// images, by their number: px, source, bytes (-1: none)
+  images : Map[Int, (Int, String, Int)]
   inst : Array[Array[String]]
 }
 
@@ -54,7 +54,7 @@ fn parse(text : String) -> Dl {
     scale: 1.0,
     clear: (1.0, 1.0, 1.0),
     glyphs: Map([]),
-    images: [],
+    images: Map([]),
     inst: [],
   }
   for v in text.split("\n") {
@@ -70,24 +70,24 @@ fn parse(text : String) -> Dl {
         dl.scale = num(t[3])
       }
       "clear" if t.length() >= 4 => dl.clear = (num(t[1]), num(t[2]), num(t[3]))
-      "glyph" if t.length() >= 9 =>
-        // glyph U V KEY SIZE WEIGHT STYLE CLUSTER "TEXT"
-        dl.glyphs[t[1] + " " + t[2]] = (
-          num(t[4]),
+      "glyph" if t.length() >= 7 =>
+        // glyph N SIZE WEIGHT STYLE CLUSTER "TEXT"
+        dl.glyphs[num(t[1]).to_int()] = (
+          num(t[2]),
+          num(t[3]).to_int(),
+          num(t[4]).to_int(),
           num(t[5]).to_int(),
-          num(t[6]).to_int(),
-          num(t[7]).to_int(),
           quoted(line),
         )
       "image" if t.length() >= 4 => {
-        // image ID PX "SOURCE" [BYTES]
+        // image N PX "SOURCE" [BYTES]
         let last = t[t.length() - 1]
         let bytes = if last.has_suffix("\"") { -1 } else { num(last).to_int() }
         let src = match (line.find("\""), line.rev_find("\"")) {
           (Some(k), Some(e)) if e > k => quoted(line.view(start_offset=0, end_offset=e + 1).to_owned())
           _ => ""
         }
-        dl.images.push((num(t[1]).to_int(), num(t[2]).to_int(), src, bytes))
+        dl.images[num(t[1]).to_int()] = (num(t[2]).to_int(), src, bytes)
       }
       "i" if t.length() == 25 => dl.inst.push(t)
       _ => ()
@@ -116,9 +116,9 @@ fn main {
   // each glyph made again: its atlas place here, by the list's
   let shaped = FixedArray::make(4096, 0.0)
   let g = FixedArray::make(8, 0.0)
-  let places : Map[String, (Double, Double, Double, Double)] = {}
+  let places : Map[Int, (Double, Double, Double, Double)] = {}
   let mut unknown = 0
-  dl.glyphs.each(fn(at, gl) {
+  dl.glyphs.each(fn(no, gl) {
     let (size, weight, style, cluster, text) = gl
     let key = if cluster < 0 {
       @host.text_key(text, size, weight, style)
@@ -134,16 +134,16 @@ fn main {
       unknown = unknown + 1
     } else {
       @host.glyph(key, g)
-      places[at] = (g[0], g[1], g[2] * dl.scale, g[3] * dl.scale)
+      places[no] = (g[0], g[1], g[2] * dl.scale, g[3] * dl.scale)
     }
   })
   // each image decoded again
   let ids : Map[Int, Int] = {}
   let info = FixedArray::make(4, 0.0)
-  for k, im in dl.images {
-    let (id, px, src, bytes) = im
+  dl.images.each(fn(no, im) {
+    let (px, src, bytes) = im
     let mine = if bytes >= 0 {
-      @host.image_load_bytes(read_bytes(path + ".img\{k}"), px)
+      @host.image_load_bytes(read_bytes(path + ".img\{no}"), px)
     } else {
       @host.image_load(src, px)
     }
@@ -152,8 +152,8 @@ fn main {
       spin(1.0)
       tries = tries + 1
     }
-    ids[id] = mine
-  }
+    ids[no] = mine
+  })
   // the instances, with this renderer's places and ids
   let n = dl.inst.length()
   let inst = FixedArray::make(n * 24, 0.0)
@@ -164,7 +164,7 @@ fn main {
     }
     let kind = inst[k * 24 + 5]
     if kind == 1.0 || kind == 3.0 || kind == 7.0 {
-      match places.get(t[13] + " " + t[14]) {
+      match places.get(inst[k * 24 + 12].to_int()) {
         Some((u, v, gw, gh)) => {
           if gw != inst[k * 24 + 14] || gh != inst[k * 24 + 15] {
             resized = resized + 1

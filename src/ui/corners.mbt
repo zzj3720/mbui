@@ -1,8 +1,9 @@
 // still.fail's corner rule, measured (its docs/ui-panels.md, "所有带圆角的东西"): what has a ground of its own (a
 // button, a row, a field, a block) and lies in the corner of a rounded container stands as far from the two edges of
 // that corner, and its corner is the container's less that distance (concentric); a circle or a capsule there is as
-// far from both, and the container's corner that distance more than its own (the container's fault when not). A test asks the frame it drew
-// (Tester::corner_faults); the gallery's components keep to it.
+// far from both, and the container's corner that distance more than its own (the container's fault when not). A
+// container's corner is its own ground's, or a ground of its size laid under it as a layer. A test asks the frame it
+// drew (Tester::corner_faults); the gallery's components keep to it.
 
 ///|
 /// Whether node `n` shows a ground of its own (a fill or an edge) and is drawn.
@@ -27,25 +28,44 @@ pub fn Tester::corner_faults(self : Tester) -> Array[String] {
   ignore(self)
   let c = g()
   let out : Array[String] = []
+  let grounds = c.layer_grounds()
   for i in 0..<c.count {
     let b = c.nodes[i]
     if !b.grounded() || b.layer {
       continue
     }
-    // the nearest rounded container round it that shows (a ground, an edge, or what it cuts)
+    // the nearest rounded container round it that shows (a ground, an edge, glass, or what it cuts), its own or one
+    // laid under it as a layer of the same size (a composer's glass drawn beside what it holds: `grounds`)
     let mut p = b.parent
+    let mut ra = 0.0
+    let mut ground = -1
     while p >= 0 {
       let a = c.nodes[p]
-      if a.kind == kind_box && a.corner() >= 6.0 && (a.grounded() || a.clip) {
+      if a.kind == kind_box && a.corner() >= 6.0 && (a.grounded() || a.glass is Some(_) || a.clip) {
+        ra = a.corner()
+        ground = p
         break
+      }
+      match grounds.get(p) {
+        Some(gi) if gi != i => {
+          ra = c.nodes[gi].corner()
+          ground = gi
+          break
+        }
+        _ => ()
       }
       p = a.parent
     }
     if p < 0 {
       continue
     }
+    // the container's own ground drawn on (the same fill, no edge: a grouped row's square patch over its rounded
+    // corners): its shape, not something in its corner
+    let gn = c.nodes[ground]
+    if b.bg == gn.bg && b.border_w <= 0.0 && gn.glass is None {
+      continue
+    }
     let a = c.nodes[p]
-    let ra = a.corner()
     let rb = b.corner()
     // a whole circle or a capsule (its corner half its shorter side: an avatar, a switch's knob, a dot, a ×) is round
     // by what it is; one laid out centred across or along its container (a card's trailing × centred up and down) is
@@ -142,4 +162,34 @@ fn Ctx::centred_in(self : Ctx, i : Int, p : Int) -> Bool {
     n = q
   }
   false
+}
+
+///|
+/// The rounded grounds laid as layers the size of what they are under: for a box, the rounded node (a fill, an edge or
+/// glass) of its own size below it, through boxes all of that size (the composer's glass, a card's ground drawn
+/// apart from what it holds): the box's corner is that ground's.
+fn Ctx::layer_grounds(self : Ctx) -> Map[Int, Int] {
+  let out : Map[Int, Int] = Map::new()
+  for gi in 0..<self.count {
+    let gn = self.nodes[gi]
+    if gn.kind != kind_box || gn.corner() < 6.0 || !(gn.grounded() || gn.glass is Some(_)) {
+      continue
+    }
+    let mut n = gi
+    while self.nodes[n].parent >= 0 {
+      let q = self.nodes[n].parent
+      let qn = self.nodes[q]
+      if (qn.x - gn.x).abs() > 0.5 ||
+        (qn.y - gn.y).abs() > 0.5 ||
+        (qn.fw - gn.fw).abs() > 0.5 ||
+        (qn.fh - gn.fh).abs() > 0.5 {
+        break
+      }
+      if !out.contains(q) {
+        out[q] = gi
+      }
+      n = q
+    }
+  }
+  out
 }

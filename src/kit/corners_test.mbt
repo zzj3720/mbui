@@ -179,3 +179,53 @@ test "corners: a round thing centred in its container is not set in a corner" {
   assert_eq(faults.length(), 1)
   assert_true(faults[0].contains("wants corner 21"))
 }
+
+///|
+test "corners: a container whose ground is a layer of its size: what is in its corner as far from both edges" {
+  // a composer: its glass a layer under it, the attachment's tile 10 from the left and 14 from the top: a fault
+  let composer = fn(c : @ui.Ctx, top : Double) {
+    c.column(pad=20.0, fn() {
+      c.box(w=Px(370.0), h=Px(160.0), fn() {
+        c.layer(fn() { c.box(w=Fill(1.0), h=Fill(1.0), bg=0xEEEEEEFFL, radius=26.0, fn() {  }) |> ignore })
+        |> ignore
+        c.box(pl=10.0, pt=top, fn() {
+          c.box(w=Px(56.0), h=Px(56.0), bg=0x3366FFFFL, radius=16.0, fn() {  }) |> ignore
+        })
+        |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  }
+  let t = @ui.Tester::new(fn(c) { composer(c, 14.0) })
+  t.draw()
+  let faults = t.corner_faults()
+  assert_eq(faults.length(), 1)
+  assert_true(faults[0].contains("10 and 14 from its edges"))
+  // 10 from both, its corner 26 less 10: no fault
+  let t = @ui.Tester::new(fn(c) { composer(c, 10.0) })
+  t.draw()
+  assert_eq(t.corner_faults(), [])
+}
+
+///|
+test "corners: the container's own fill drawn on over its corner is its shape, not a thing in its corner" {
+  // a grouped row: its rounded ground, a square patch of the same fill over its bottom corners: no fault
+  let row = fn(c : @ui.Ctx, patch : Int64) {
+    c.column(pad=20.0, fn() {
+      c.box(w=Px(366.0), h=Px(58.0), bg=0xEEEEEEFFL, radius=16.0, fn() {
+        c.box(h=Px(42.0), fn() {  }) |> ignore
+        c.box(w=Fill(1.0), h=Px(16.0), bg=patch, fn() {  }) |> ignore
+      })
+      |> ignore
+    })
+    |> ignore
+  }
+  let t = @ui.Tester::new(fn(c) { row(c, 0xEEEEEEFFL) })
+  t.draw()
+  assert_eq(t.corner_faults(), [])
+  // a band of another fill there (a table's foot): its square corners show past the card's: both corners fault
+  let t = @ui.Tester::new(fn(c) { row(c, 0x3366FFFFL) })
+  t.draw()
+  assert_eq(t.corner_faults().length(), 2)
+}

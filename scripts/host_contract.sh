@@ -393,6 +393,7 @@ open(sys.argv[2],'wb').write(base64.b64decode(''.join(parts)))
     # moment)
     at_ms=1000
     REST_PAGE=foundation
+    grep -q "\"$REST_PAGE\" =>" src/kitdemo/main.mbt || { echo "rest contract: kitdemo has no page $REST_PAGE"; exit 1; }
     rm -f $O/rest-*.png $O/rest-*.log
     for m in $at_ms rest; do
       case $H in
@@ -410,6 +411,8 @@ open(sys.argv[2],'wb').write(base64.b64decode(''.join(parts)))
       if ! grep -aqE "^SHOT [0-9]+ [0-9]" $O/rest-$m.log || [ ! -s $O/rest-$m.png ]; then
         echo "rest contract ($H): no picture at $m"; tail -20 $O/rest-$m.log; exit 1
       fi
+      # (of the page: two wrong pictures, a splash's or "No page", would be the same to the byte too)
+      "$PY" scripts/gallery_shot.py $O/rest-$m.png || exit 1
     done
     if cmp -s $O/rest-$at_ms.png $O/rest-rest.png; then
       echo "rest contract ($H): the picture at its rest is the one at $at_ms ms, to the byte"

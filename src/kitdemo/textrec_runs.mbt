@@ -10,6 +10,7 @@ fn kept_run(name : String) -> String? {
     "mini1_foundation" => Some(run_mini1_foundation)
     "mini1_menus" => Some(run_mini1_menus)
     "mini1_overlays" => Some(run_mini1_overlays)
+    "web_controls" => Some(run_web_controls)
     _ => None
   }
 }

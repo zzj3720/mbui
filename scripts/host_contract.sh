@@ -31,7 +31,8 @@ case $H in
   *) echo "host_contract.sh: no host $H (android, windows, web, mac)" >&2; exit 1 ;;
 esac
 DRIVE=$(base64 < test/host/controls.drive | tr -d '\n\r')
-REC="MBUI_DRAW_LOG=1 MBUI_TEXT_RECORD=1 MBUI_SCREEN=$PAGE MBUI_DRIVE_B64=$DRIVE"
+# (MBUI_DRAW_DUMP=1: the first frame also drawn as text, for what a Tester that parts there is compared with)
+REC="MBUI_DRAW_LOG=1 MBUI_TEXT_RECORD=1 MBUI_DRAW_DUMP=1 MBUI_SCREEN=$PAGE MBUI_DRIVE_B64=$DRIVE"
 SDK=${ANDROID_HOME:-$HOME/Library/Android/sdk}
 SERIAL=${SERIAL:-emulator-5554}
 ADB="$SDK/platform-tools/adb -s $SERIAL"
@@ -74,8 +75,18 @@ case $CMD in
     echo "the run: $(grep -c DRAWHASH $O/run.log) frames, $(grep -c 'INPUT ' $O/run.log) inputs, $(grep -c TEXTREC $O/run.log) text answers"
     "$PY" scripts/textrec_test.py $O/run.log $NAME $PAGE - - $PLATFORM
     set -o pipefail
-    moon test --target js src/kitdemo/textrec_${NAME}_wbtest.mbt 2>&1 | tr -d '\r' | grep -v '^TDUMP' | tail -20 | tee $O/test.txt
-    grep -q "passed: 1, failed: 0" $O/test.txt || { echo "host_contract: the Tester's frames are not the host's ($O/test.txt)"; exit 1; }
+    { moon test --target js src/kitdemo/textrec_${NAME}_wbtest.mbt 2>&1 || true; } | tr -d '\r' | grep -v '^TDUMP' | tail -20 | tee $O/test.txt
+    if ! grep -q "passed: 1, failed: 0" $O/test.txt; then
+      # the first frame as the host drew it (DRAWDUMP) beside a Tester's, over the run cut at that frame: where they part
+      awk '/TEXTREC /{print; next} !d && /INPUT /{print} !d && /DRAWHASH /{print; d=1}' $O/run.log > $O/first.log
+      "$PY" scripts/textrec_test.py $O/first.log ${NAME}_first $PAGE - - $PLATFORM >/dev/null
+      { moon test --target js src/kitdemo/textrec_${NAME}_first_wbtest.mbt 2>&1 || true; } | tr -d '\r' | sed -n 's/^TDUMP //p' > $O/tester-frame1.txt
+      tr -d '\r' < $O/run.log | sed -n 's/^.*DRAWDUMP //p' > $O/host-frame1.txt
+      echo "the first frame, the host's (<) and the Tester's (>):"
+      diff $O/host-frame1.txt $O/tester-frame1.txt | head -60 || true
+      echo "host_contract: the Tester's frames are not the host's ($O/test.txt)"
+      exit 1
+    fi
     echo "host contract ($H): the Tester drew every frame the host drew" ;;
   text)
     NAME=${3:-${H}_controls}

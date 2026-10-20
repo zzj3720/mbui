@@ -180,7 +180,9 @@ fn glyph_names() -> Map[Int, ((Double, Int, Int), Int, String)] {
 /// (the list would draw it as another), said; else unnamed (a renderer draws it as nothing).
 fn no_glyph_name(k : Int) -> String {
   if text_table.val is Some(_) {
-    abort("Tester::drawlist: instance \{k} draws a glyph the host's kept text does not have")
+    let s = "Tester::drawlist: instance \{k} draws a glyph the host's kept text does not have"
+    println(s)
+    abort(s)
   }
   " 0 0 0 -1 \"\""
 }
@@ -191,11 +193,12 @@ fn drawlist_of(c : Ctx, bytes? : Bool = false) -> String {
   // and named by the host's they would be drawn as other glyphs (a renderer's picture of words never drawn). Said, not
   // drawn
   match text_table.val {
-    Some(t) if t.missing.length() > 0 =>
-      abort(
-        "Tester::drawlist: the host's kept text lacks \{t.missing.length()} of what was drawn (record its text again): " +
-        t.missing[:5].to_array().join(", "),
-      )
+    Some(t) if t.missing.length() > 0 => {
+      let s = "Tester::drawlist: the host's kept text lacks \{t.missing.length()} of what was drawn (record its text again): " +
+        t.missing[:5].to_array().join(", ")
+      println(s)
+      abort(s)
+    }
     _ => ()
   }
   let sb = StringBuilder()

@@ -475,10 +475,14 @@ fn Ctx::paint_native(self : Ctx, i : Int, n : Node) -> Unit {
     )
   }
   v.painted = self.frame_no
-  v.at[0] = x
-  v.at[1] = y
-  v.at[2] = w
-  v.at[3] = h
+  // (its content on whole device pixels too, as its hole is: placed between pixels, the row its edge half covers
+  // shows what is under the canvas, a line along the picture's edge)
+  let cx0 = snap(x)
+  let cy0 = snap(y)
+  v.at[0] = cx0
+  v.at[1] = cy0
+  v.at[2] = snap(x + w) - cx0
+  v.at[3] = snap(y + h) - cy0
   v.at[4] = x0
   v.at[5] = y0
   v.at[6] = x1
